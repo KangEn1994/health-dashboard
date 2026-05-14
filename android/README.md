@@ -15,18 +15,20 @@ This Android client only implements:
 
 ## Default API URL
 
-`http://10.0.2.2:18080/`
+`https://health.kangen.fun:7894/`
 
-This is correct for the Android emulator talking to the local FastAPI server on the same machine.
+This is the current default server address. You can still change it on the login screen.
 
 ## Features
 
 - Login with the fixed password
 - Configure API base URL
 - List and create health entries
+- Edit entries
 - Delete entries
 - View dashboard insights
 - View weight/body-fat/BMI trend charts
+- Home screen widget with 14-day weight sparkline
 
 ## Build
 

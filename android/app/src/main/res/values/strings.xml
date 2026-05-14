@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Health Dashboard</string>
+    <string name="widget_title">14天体重</string>
+    <string name="widget_empty">暂无足够数据</string>
+    <string name="widget_refresh">刷新</string>
+    <string name="widget_previous_metric">上一个指标</string>
+    <string name="widget_next_metric">下一个指标</string>
+</resources>

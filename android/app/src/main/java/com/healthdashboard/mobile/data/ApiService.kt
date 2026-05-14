@@ -15,6 +15,9 @@ interface ApiService {
     @GET("api/metrics")
     suspend fun getMetrics(): List<MetricDto>
 
+    @GET("api/profile")
+    suspend fun getProfile(): ProfileDto
+
     @GET("api/entries")
     suspend fun getEntries(
         @Query("start_date") startDate: String? = null,

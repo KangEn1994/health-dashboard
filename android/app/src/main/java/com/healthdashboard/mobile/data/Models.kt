@@ -60,3 +60,8 @@ data class DashboardDto(
     val trends: Map<String, List<TrendPointDto>>,
     val insights: List<String>,
 )
+
+data class ProfileDto(
+    val height_cm: Double,
+    val timezone: String,
+)
