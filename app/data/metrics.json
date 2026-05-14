@@ -1,0 +1,80 @@
+[
+  {
+    "id": "weight_kg",
+    "label": "体重",
+    "unit": "kg",
+    "type": "number",
+    "color": "#1d4ed8",
+    "chart_type": "line",
+    "precision": 1,
+    "goal_direction": "down",
+    "active": true,
+    "show_on_dashboard": true,
+    "sort_order": 10
+  },
+  {
+    "id": "body_fat_pct",
+    "label": "体脂率",
+    "unit": "%",
+    "type": "number",
+    "color": "#dc2626",
+    "chart_type": "line",
+    "precision": 1,
+    "goal_direction": "down",
+    "active": true,
+    "show_on_dashboard": true,
+    "sort_order": 20
+  },
+  {
+    "id": "muscle_pct",
+    "label": "骨骼肌率",
+    "unit": "%",
+    "type": "number",
+    "color": "#0f766e",
+    "chart_type": "line",
+    "precision": 1,
+    "goal_direction": "up",
+    "active": true,
+    "show_on_dashboard": true,
+    "sort_order": 30
+  },
+  {
+    "id": "waist_cm",
+    "label": "腰围",
+    "unit": "cm",
+    "type": "number",
+    "color": "#7c3aed",
+    "chart_type": "line",
+    "precision": 1,
+    "goal_direction": "down",
+    "active": true,
+    "show_on_dashboard": true,
+    "sort_order": 40
+  },
+  {
+    "id": "resting_hr_bpm",
+    "label": "静息心率",
+    "unit": "bpm",
+    "type": "number",
+    "color": "#ea580c",
+    "chart_type": "line",
+    "precision": 0,
+    "goal_direction": "down",
+    "active": true,
+    "show_on_dashboard": false,
+    "sort_order": 50
+  },
+  {
+    "id": "sleep_hours",
+    "label": "睡眠时长",
+    "unit": "h",
+    "type": "number",
+    "color": "#0891b2",
+    "chart_type": "bar",
+    "precision": 1,
+    "goal_direction": "up",
+    "active": true,
+    "show_on_dashboard": false,
+    "sort_order": 60
+  }
+]

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>指标配置 - Health Dashboard</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+    <script defer src="/static/app.js"></script>
+  </head>
+  <body data-page="metrics">
+    <div class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark"></div>
+          <div>
+            <h1>指标配置</h1>
+            <p>定义指标、配置颜色和图表方式，并维护 BMI 所需的身高信息。</p>
+          </div>
+        </div>
+        <nav class="nav">
+          <a href="/">看板</a>
+          <a href="/records">记录管理</a>
+          <a href="/metrics">指标配置</a>
+          <a href="/docs">接口文档</a>
+          <a href="#" data-logout-link>退出</a>
+        </nav>
+      </header>
+
+      <div class="card-grid">
+        <section class="panel span-4">
+          <h3>基础资料</h3>
+          <div id="profileStatus" class="status-pill">等待操作</div>
+          <form id="profileForm">
+            <label>
+              身高（cm）
+              <input type="number" name="height_cm" min="1" max="300" step="0.1" required />
+            </label>
+            <label>
+              时区
+              <input type="text" name="timezone" required />
+            </label>
+            <button type="submit">保存基础资料</button>
+          </form>
+        </section>
+
+        <section class="panel span-8">
+          <h3>新增 / 编辑指标</h3>
+          <div id="metricStatus" class="status-pill">等待操作</div>
+          <form id="metricForm">
+            <div class="form-grid">
+              <label>
+                指标 ID
+                <input type="text" name="metric_id" placeholder="weight_kg" required />
+              </label>
+              <label>
+                名称
+                <input type="text" name="label" placeholder="体重" required />
+              </label>
+              <label>
+                单位
+                <input type="text" name="unit" placeholder="kg" />
+              </label>
+              <label>
+                类型
+                <select name="type">
+                  <option value="number">number</option>
+                  <option value="text">text</option>
+                </select>
+              </label>
+              <label>
+                颜色
+                <input type="color" name="color" value="#0f62fe" />
+              </label>
+              <label>
+                图表类型
+                <select name="chart_type">
+                  <option value="line">line</option>
+                  <option value="bar">bar</option>
+                  <option value="scatter">scatter</option>
+                </select>
+              </label>
+              <label>
+                精度
+                <input type="number" name="precision" min="0" max="4" value="1" />
+              </label>
+              <label>
+                目标方向
+                <select name="goal_direction">
+                  <option value="down">down</option>
+                  <option value="up">up</option>
+                  <option value="neutral">neutral</option>
+                </select>
+              </label>
+              <label>
+                排序
+                <input type="number" name="sort_order" min="0" max="9999" value="100" />
+              </label>
+            </div>
+            <div class="actions">
+              <label><input type="checkbox" name="show_on_dashboard" checked /> 首页展示</label>
+              <label><input type="checkbox" name="active" checked /> 启用</label>
+            </div>
+            <div class="actions">
+              <button type="submit">保存指标</button>
+              <button type="button" class="secondary" id="cancelMetricEdit" hidden>取消编辑</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="span-12">
+          <div class="metrics-grid" id="metricsList"></div>
+        </section>
+      </div>
+    </div>
+  </body>
+</html>

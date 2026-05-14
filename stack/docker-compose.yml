@@ -1,0 +1,22 @@
+name: health-dashboard
+
+services:
+  health-dashboard:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: health_dashboard
+    restart: unless-stopped
+    environment:
+      HEALTH_DASHBOARD_DATA_DIR: /app/data
+      HEALTH_DASHBOARD_PASSWORD: ${HEALTH_DASHBOARD_PASSWORD:-19940318}
+      HEALTH_DASHBOARD_TOKEN_SECRET: ${HEALTH_DASHBOARD_TOKEN_SECRET:-replace-this-secret}
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "18080:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
+      interval: 20s
+      timeout: 5s
+      retries: 3

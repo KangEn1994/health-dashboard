@@ -1,0 +1,10 @@
+.DS_Store
+.pytest_cache/
+__pycache__/
+*.pyc
+.venv/
+stack/data/
+android/.gradle/
+android/local.properties
+android/app/build/
+android/build/

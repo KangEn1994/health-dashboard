@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Health Dashboard</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+    <script defer src="/static/app.js"></script>
+  </head>
+  <body data-page="dashboard">
+    <div class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark"></div>
+          <div>
+            <h1>Health Dashboard</h1>
+            <p>手动维护健康数据，自动输出趋势与对比分析。</p>
+          </div>
+        </div>
+        <nav class="nav">
+          <a href="/">看板</a>
+          <a href="/records">记录管理</a>
+          <a href="/metrics">指标配置</a>
+          <a href="/docs">接口文档</a>
+          <a href="#" data-logout-link>退出</a>
+        </nav>
+      </header>
+
+      <section class="hero">
+        <div>
+          <h2>把体重、体脂和围度变化，做成真正能看的健康看板。</h2>
+          <p>支持纯手动录入和直接编辑 JSON 文件。数据一落盘，图表、对比和自动洞察会立即更新。</p>
+          <div class="range-toggle">
+            <button class="active" data-range="year">年</button>
+            <button data-range="quarter">季度</button>
+            <button data-range="month">月</button>
+          </div>
+        </div>
+        <div class="summary-grid" id="continuityStats"></div>
+      </section>
+
+      <div class="summary-grid" id="summaryGrid"></div>
+
+      <div class="card-grid" style="margin-top: 18px;">
+        <section class="panel span-8">
+          <h3>主趋势</h3>
+          <p class="muted">每个指标单独成图，按当前范围自动调整纵轴。</p>
+          <div id="trendChartsGrid" class="trend-chart-grid"></div>
+        </section>
+
+        <section class="panel span-4">
+          <h3>自动洞察</h3>
+          <p class="muted">基于近期开启数据的简短解读。</p>
+          <div class="insight-list" id="insightList"></div>
+        </section>
+
+        <section class="panel span-6">
+          <h3>当前周期 vs 上一周期</h3>
+          <p class="muted">看出均值变化，而不是只盯单点波动。</p>
+          <div id="comparisonChart" class="chart short"></div>
+        </section>
+
+        <section class="panel span-6">
+          <h3>相关性</h3>
+          <p class="muted">优先展示体重与其它指标的关系。</p>
+          <div id="correlationChart" class="chart short"></div>
+        </section>
+
+        <section class="panel span-12">
+          <h3>记录热力图</h3>
+          <p class="muted">按日查看记录密度，快速发现掉线区间。</p>
+          <div id="heatmapChart" class="chart short"></div>
+        </section>
+      </div>
+
+      <div class="footer-note">无登录、单用户、文件落盘。适合个人自部署与长期维护。</div>
+    </div>
+  </body>
+</html>

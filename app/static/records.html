@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>记录管理 - Health Dashboard</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+    <script defer src="/static/app.js"></script>
+  </head>
+  <body data-page="records">
+    <div class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark"></div>
+          <div>
+            <h1>记录管理</h1>
+            <p>维护每天的健康数据，并回看历史记录。</p>
+          </div>
+        </div>
+        <nav class="nav">
+          <a href="/">看板</a>
+          <a href="/records">记录管理</a>
+          <a href="/metrics">指标配置</a>
+          <a href="/docs">接口文档</a>
+          <a href="#" data-logout-link>退出</a>
+        </nav>
+      </header>
+
+      <div class="card-grid">
+        <section class="panel span-4">
+          <h3>新增 / 编辑记录</h3>
+          <p class="muted">字段会根据指标配置自动生成。</p>
+          <div id="recordStatus" class="status-pill">等待操作</div>
+          <form id="recordForm">
+            <div class="form-grid">
+              <label>
+                记录时间
+                <input type="datetime-local" name="recorded_at" required />
+              </label>
+            </div>
+            <div class="form-grid" id="metricFields"></div>
+            <label>
+              标签
+              <input type="text" name="tags" placeholder="减脂期, 出差, 晚餐偏多" />
+            </label>
+            <label>
+              备注
+              <textarea name="note" placeholder="例如：今天训练量偏高，体脂秤时间较晚。"></textarea>
+            </label>
+            <div class="actions">
+              <button type="submit">保存记录</button>
+              <button type="button" class="secondary" id="cancelEdit" hidden>取消编辑</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel span-8">
+          <h3>历史记录</h3>
+          <p class="muted">支持日期和关键词筛选，按时间倒序查看。</p>
+          <form id="filterForm">
+            <div class="form-grid">
+              <label>
+                开始日期
+                <input type="date" name="start_date" />
+              </label>
+              <label>
+                结束日期
+                <input type="date" name="end_date" />
+              </label>
+              <label>
+                关键词
+                <input type="text" name="query" placeholder="备注或标签关键词" />
+              </label>
+            </div>
+            <div class="actions">
+              <button type="submit">应用筛选</button>
+            </div>
+          </form>
+          <div style="overflow:auto; margin-top: 18px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>时间</th>
+                  <th>数值</th>
+                  <th>备注</th>
+                  <th>标签</th>
+                  <th>缺失项</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="recordsBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </div>
+  </body>
+</html>
