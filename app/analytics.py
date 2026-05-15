@@ -80,6 +80,23 @@ def series_for_metric(
     return series
 
 
+def workout_duration_series(sessions: list[dict[str, Any]], days: int | None = None) -> list[dict[str, Any]]:
+    relevant_sessions = sessions
+    if days is not None:
+        cutoff = now_beijing() - timedelta(days=days)
+        relevant_sessions = [session for session in sessions if parse_recorded_at_beijing(session["recorded_at"]) >= cutoff]
+
+    buckets: dict[str, int] = defaultdict(int)
+    for session in relevant_sessions:
+        day_key = parse_recorded_at_beijing(session["recorded_at"]).date().isoformat()
+        buckets[day_key] += sum(int(exercise.get("duration_minutes") or 0) for exercise in session.get("exercises", []))
+
+    return [
+        {"recorded_at": f"{day}T00:00:00+08:00", "value": float(total_minutes)}
+        for day, total_minutes in sorted(buckets.items())
+    ]
+
+
 def moving_average(series: list[dict[str, Any]], window: int = 7) -> list[dict[str, Any]]:
     result = []
     values = [point["value"] for point in series]
@@ -133,6 +150,7 @@ def correlation_pairs(
     entries: list[dict[str, Any]],
     metric_ids: list[str],
     height_cm: float,
+    workout_duration_by_day: dict[str, float] | None = None,
 ) -> list[dict[str, Any]]:
     sorted_entries = sort_entries(entries)
     metric_pairs = []
@@ -146,7 +164,13 @@ def correlation_pairs(
         secondary_values = []
         for entry in sorted_entries:
             weight = entry.get("values", {}).get(primary)
-            other = bmi_for_entry(entry, height_cm) if metric_id == "bmi" else entry.get("values", {}).get(metric_id)
+            if metric_id == "bmi":
+                other = bmi_for_entry(entry, height_cm)
+            elif metric_id == "workout_duration_min":
+                day_key = parse_recorded_at_beijing(entry["recorded_at"]).date().isoformat()
+                other = (workout_duration_by_day or {}).get(day_key)
+            else:
+                other = entry.get("values", {}).get(metric_id)
             if isinstance(weight, (int, float)) and isinstance(other, (int, float)):
                 primary_values.append(float(weight))
                 secondary_values.append(float(other))

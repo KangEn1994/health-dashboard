@@ -32,9 +32,10 @@
       <div class="card-grid">
         <section class="panel span-7">
           <h3>记录一次训练</h3>
-            <p class="muted">支持一次录入多个动作，也支持椭圆机、跑步机、爬楼机等有氧项目。可先选计划，再按需要追加动作。</p>
+          <p class="muted">支持一次录入多个动作，也支持椭圆机、跑步机、爬楼机等有氧项目。可先选计划，再按需要追加动作。</p>
           <div id="workoutSessionStatus" class="status-pill">等待操作</div>
           <form id="workoutSessionForm">
+            <input type="hidden" name="session_id" />
             <div class="form-grid">
               <label>
                 时间
@@ -63,7 +64,8 @@
             </div>
             <div id="workoutExerciseRows" class="metrics-grid"></div>
             <div class="actions">
-              <button type="submit">保存训练记录</button>
+              <button type="submit" id="workoutSessionSubmit">保存训练记录</button>
+              <button type="button" class="secondary" id="cancelWorkoutEdit" style="display:none;">取消编辑</button>
             </div>
           </form>
         </section>
@@ -87,6 +89,7 @@
                   <th>动作</th>
                   <th>备注</th>
                   <th>标签</th>
+                  <th>操作</th>
                 </tr>
               </thead>
               <tbody id="workoutSessionsBody"></tbody>

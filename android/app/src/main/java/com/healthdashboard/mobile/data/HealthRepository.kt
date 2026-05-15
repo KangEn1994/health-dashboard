@@ -2,6 +2,7 @@ package com.healthdashboard.mobile.data
 
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import kotlin.math.pow
 
 class HealthRepository(private val authRepository: AuthRepository) {
@@ -32,6 +33,12 @@ class HealthRepository(private val authRepository: AuthRepository) {
 
     suspend fun createWorkoutSession(payload: WorkoutSessionRequest): WorkoutSessionDto =
         authRepository.service().createWorkoutSession(payload)
+
+    suspend fun updateWorkoutSession(sessionId: String, payload: WorkoutSessionRequest): WorkoutSessionDto =
+        authRepository.service().updateWorkoutSession(sessionId, payload)
+
+    suspend fun deleteWorkoutSession(sessionId: String): WorkoutSessionDto =
+        authRepository.service().deleteWorkoutSession(sessionId)
 
     suspend fun getWidgetMetricOptions(): List<MetricDto> {
         return getMetrics().filter { it.active && it.type == "number" }
@@ -71,5 +78,40 @@ class HealthRepository(private val authRepository: AuthRepository) {
             latest = points.lastOrNull()?.value,
             points = points.takeLast(14),
         )
+    }
+
+    suspend fun getWorkoutCalendarSummary(days: Long = 42): List<WorkoutCalendarPointDto> {
+        val formatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME
+        val now = OffsetDateTime.now(ZoneOffset.ofHours(8))
+        val start = now.minusDays(days)
+        val overview = getWorkoutOverview()
+        return overview.sessions
+            .mapNotNull { session ->
+                val recordedAt = runCatching { OffsetDateTime.parse(session.recorded_at, formatter) }.getOrNull() ?: return@mapNotNull null
+                val bjTime = recordedAt.withOffsetSameInstant(ZoneOffset.ofHours(8))
+                if (bjTime.isBefore(start)) return@mapNotNull null
+                val totalDuration = session.exercises.sumOf { it.duration_minutes ?: 0 }
+                val totalSets = session.exercises.sumOf { exercise ->
+                    if (exercise.part_id == "cardio") 0 else exercise.sets
+                }
+                WorkoutCalendarPointDto(
+                    date = bjTime.toLocalDate().toString(),
+                    session_count = 1,
+                    total_sets = totalSets,
+                    total_duration_minutes = totalDuration,
+                    parts = session.exercises.map { it.part_id }.distinct(),
+                )
+            }
+            .groupBy { it.date }
+            .map { (date, items) ->
+                WorkoutCalendarPointDto(
+                    date = date,
+                    session_count = items.sumOf { it.session_count },
+                    total_sets = items.sumOf { it.total_sets },
+                    total_duration_minutes = items.sumOf { it.total_duration_minutes },
+                    parts = items.flatMap { it.parts }.distinct(),
+                )
+            }
+            .sortedBy { it.date }
     }
 }

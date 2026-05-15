@@ -45,4 +45,13 @@ interface ApiService {
 
     @POST("api/workouts/sessions")
     suspend fun createWorkoutSession(@Body payload: WorkoutSessionRequest): WorkoutSessionDto
+
+    @PUT("api/workouts/sessions/{sessionId}")
+    suspend fun updateWorkoutSession(
+        @Path("sessionId") sessionId: String,
+        @Body payload: WorkoutSessionRequest,
+    ): WorkoutSessionDto
+
+    @DELETE("api/workouts/sessions/{sessionId}")
+    suspend fun deleteWorkoutSession(@Path("sessionId") sessionId: String): WorkoutSessionDto
 }

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,12 +17,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Logout
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAddCheck
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.LocalFireDepartment
-import androidx.compose.material.icons.rounded.QueryStats
 import androidx.compose.material.icons.rounded.RemoveCircleOutline
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -119,6 +117,7 @@ fun WorkoutScreen(
     var note by remember { mutableStateOf("") }
     var tags by remember { mutableStateOf("") }
     var energyLevel by remember { mutableStateOf("7") }
+    var editingSessionId by remember { mutableStateOf<String?>(null) }
     val exerciseDrafts = remember { mutableStateListOf<WorkoutExerciseDraft>() }
     var draftSeed by remember { mutableStateOf(0) }
 
@@ -200,6 +199,7 @@ fun WorkoutScreen(
     }
 
     fun resetForm() {
+        editingSessionId = null
         selectedPlanId = null
         selectedDateTime = LocalDateTime.now(BeijingOffset)
         note = ""
@@ -207,6 +207,30 @@ fun WorkoutScreen(
         energyLevel = "7"
         exerciseDrafts.clear()
         ensureDrafts(overview)
+    }
+
+    fun applySessionToForm(session: WorkoutSessionDto) {
+        editingSessionId = session.id
+        selectedPlanId = session.plan_id
+        selectedDateTime = OffsetDateTime.parse(session.recorded_at).toLocalDateTime()
+        note = session.note
+        tags = session.tags.joinToString(", ")
+        energyLevel = session.energy_level?.toString().orEmpty()
+        exerciseDrafts.clear()
+        session.exercises.forEach { exercise ->
+            draftSeed += 1
+            exerciseDrafts += WorkoutExerciseDraft(
+                id = draftSeed,
+                partId = exercise.part_id,
+                exerciseId = exercise.exercise_id,
+                detail = exercise.detail,
+                sets = exercise.sets.toString(),
+                reps = exercise.reps?.toString().orEmpty(),
+                weightKg = exercise.weight_kg?.toString().orEmpty(),
+                durationMinutes = exercise.duration_minutes?.toString().orEmpty(),
+                rpe = exercise.rpe?.toString().orEmpty(),
+            ).normalizeForPart(exercise.part_id)
+        }
     }
 
     fun openDateTimePicker(context: android.content.Context) {
@@ -280,48 +304,8 @@ fun WorkoutScreen(
                     val currentPlan = plans.firstOrNull { it.id == selectedPlanId }
 
                     item {
-                        WorkoutSummaryStrip(overview = currentOverview)
-                    }
-
-                    item {
                         SectionCard(
-                            title = "训练建议",
-                            subtitle = "根据最近 14 天和 30 天训练情况生成，帮助你调整力量训练覆盖和有氧频率。",
-                        ) {
-                            FlowRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                SummaryAssistChip(
-                                    icon = Icons.Rounded.LocalFireDepartment,
-                                    label = "14天 ${currentOverview.summary_14d.session_count} 次",
-                                )
-                                SummaryAssistChip(
-                                    icon = Icons.Rounded.QueryStats,
-                                    label = "14天 ${currentOverview.summary_14d.total_sets} 组",
-                                )
-                                SummaryAssistChip(
-                                    icon = Icons.AutoMirrored.Rounded.PlaylistAddCheck,
-                                    label = "30天 ${currentOverview.summary_30d.session_count} 次",
-                                )
-                            }
-                            if (currentOverview.recommendations.isEmpty()) {
-                                Text(
-                                    text = "继续记录更多训练后，这里会给出更有针对性的建议。",
-                                    modifier = Modifier.padding(top = 14.dp),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            } else {
-                                currentOverview.recommendations.forEach { insight ->
-                                    InsightRow(text = insight)
-                                }
-                            }
-                        }
-                    }
-
-                    item {
-                        SectionCard(
-                            title = "新增训练记录",
+                            title = if (editingSessionId == null) "新增训练记录" else "编辑训练记录",
                             subtitle = "先选计划或自由训练，再逐个补充力量动作或有氧项目细节。",
                         ) {
                             var planExpanded by remember { mutableStateOf(false) }
@@ -435,6 +419,9 @@ fun WorkoutScreen(
                                     exercises = exercises,
                                     selectedPart = part,
                                     selectedExercise = selectedExercise,
+                                    resolveDefaultExerciseId = { partId ->
+                                        exercisesForPart(currentOverview, partId).firstOrNull()?.id.orEmpty()
+                                    },
                                     onDraftChange = { transform -> updateDraft(draft.id, transform) },
                                     onRemove = { exerciseDrafts.removeAll { it.id == draft.id } },
                                 )
@@ -479,9 +466,14 @@ fun WorkoutScreen(
                                             snackbarHostState.showSnackbar("至少添加一个有效动作")
                                             return@launch
                                         }
-                                        runCatching { repository.createWorkoutSession(payload) }
+                                        val operation = editingSessionId?.let { sessionId ->
+                                            runCatching { repository.updateWorkoutSession(sessionId, payload) }
+                                        } ?: runCatching {
+                                            repository.createWorkoutSession(payload)
+                                        }
+                                        operation
                                             .onSuccess {
-                                                snackbarHostState.showSnackbar("训练记录已保存")
+                                                snackbarHostState.showSnackbar(if (editingSessionId == null) "训练记录已保存" else "训练记录已更新")
                                                 resetForm()
                                                 loadOverview()
                                             }
@@ -494,7 +486,17 @@ fun WorkoutScreen(
                                     .fillMaxWidth()
                                     .padding(top = 14.dp),
                             ) {
-                                Text("保存训练记录")
+                                Text(if (editingSessionId == null) "保存训练记录" else "更新训练记录")
+                            }
+                            if (editingSessionId != null) {
+                                OutlinedButton(
+                                    onClick = { resetForm() },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 10.dp),
+                                ) {
+                                    Text("取消编辑")
+                                }
                             }
                         }
                     }
@@ -512,6 +514,22 @@ fun WorkoutScreen(
                             overview = currentOverview,
                             session = session,
                             sessionFormatter = sessionFormatter,
+                            onEdit = { applySessionToForm(session) },
+                            onDelete = {
+                                scope.launch {
+                                    runCatching { repository.deleteWorkoutSession(session.id) }
+                                        .onSuccess {
+                                            if (editingSessionId == session.id) {
+                                                resetForm()
+                                            }
+                                            snackbarHostState.showSnackbar("训练记录已删除")
+                                            loadOverview()
+                                        }
+                                        .onFailure {
+                                            snackbarHostState.showSnackbar(it.message ?: "训练记录删除失败")
+                                        }
+                                }
+                            },
                         )
                     }
                 }
@@ -550,8 +568,9 @@ private fun WorkoutSummaryStrip(overview: WorkoutOverviewDto) {
     }
 }
 
+
 @Composable
-private fun SummaryStatCard(
+fun SummaryStatCard(
     modifier: Modifier = Modifier,
     title: String,
     value: String,
@@ -566,6 +585,7 @@ private fun SummaryStatCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(min = 148.dp)
                 .background(
                     brush = Brush.verticalGradient(
                         colors = listOf(accent.copy(alpha = 0.16f), Color.White),
@@ -605,7 +625,7 @@ private fun SummaryAssistChip(
 }
 
 @Composable
-private fun InsightRow(text: String) {
+fun InsightRow(text: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -642,6 +662,7 @@ private fun ExerciseDraftCard(
     exercises: List<WorkoutExerciseDto>,
     selectedPart: WorkoutPartDto?,
     selectedExercise: WorkoutExerciseDto?,
+    resolveDefaultExerciseId: (String) -> String,
     onDraftChange: ((WorkoutExerciseDraft) -> WorkoutExerciseDraft) -> Unit,
     onRemove: () -> Unit,
 ) {
@@ -704,8 +725,9 @@ private fun ExerciseDraftCard(
                             text = { Text(option.label) },
                             onClick = {
                                 partExpanded = false
+                                val nextExerciseId = resolveDefaultExerciseId(option.id)
                                 onDraftChange {
-                                    it.copy(exerciseId = "").normalizeForPart(option.id)
+                                    it.copy(exerciseId = nextExerciseId).normalizeForPart(option.id)
                                 }
                             },
                         )
@@ -822,6 +844,8 @@ private fun WorkoutHistoryCard(
     overview: WorkoutOverviewDto,
     session: WorkoutSessionDto,
     sessionFormatter: DateTimeFormatter,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     val planLabel = overview.plans.firstOrNull { it.id == session.plan_id }?.name ?: "自由训练"
     val recordedAt = runCatching {
@@ -850,6 +874,17 @@ private fun WorkoutHistoryCard(
                         label = { Text("强度 $it") },
                         colors = FilterChipDefaults.filterChipColors(),
                     )
+                }
+            }
+            Row(
+                modifier = Modifier.padding(top = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                OutlinedButton(onClick = onEdit) {
+                    Text("编辑这次训练")
+                }
+                OutlinedButton(onClick = onDelete) {
+                    Text("删除")
                 }
             }
 

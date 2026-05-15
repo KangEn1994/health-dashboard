@@ -57,5 +57,25 @@
       }
     ],
     "active": true
+  },
+  {
+    "id": "cardio_recovery",
+    "name": "心肺恢复",
+    "description": "适合恢复日或力量训练后追加的轻中强度有氧。",
+    "groups": [
+      {
+        "id": "cardio_recovery_group_1",
+        "name": "稳态有氧",
+        "part_id": "cardio",
+        "exercise_ids": [
+          "elliptical",
+          "treadmill",
+          "stair_climber"
+        ],
+        "notes": "任选一个项目持续 20-40 分钟，记录阻力、速度或坡度。",
+        "sort_order": 10
+      }
+    ],
+    "active": true
   }
 ]

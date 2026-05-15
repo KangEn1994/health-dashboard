@@ -61,6 +61,14 @@ data class DashboardDto(
     val insights: List<String>,
 )
 
+data class WorkoutCalendarPointDto(
+    val date: String,
+    val session_count: Int,
+    val total_sets: Int,
+    val total_duration_minutes: Int,
+    val parts: List<String>,
+)
+
 data class ProfileDto(
     val height_cm: Double,
     val timezone: String,

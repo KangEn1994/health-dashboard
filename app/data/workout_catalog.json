@@ -41,6 +41,13 @@
       "color": "#0891b2",
       "sort_order": 60,
       "active": true
+    },
+    {
+      "id": "cardio",
+      "label": "有氧",
+      "color": "#0f766e",
+      "sort_order": 70,
+      "active": true
     }
   ],
   "exercises": {
@@ -174,6 +181,48 @@
         "detail_placeholder": "如：跪姿、顶峰停顿",
         "active": true,
         "sort_order": 20
+      }
+    ],
+    "cardio": [
+      {
+        "id": "elliptical",
+        "name": "椭圆机",
+        "description": "低冲击有氧，适合恢复日或稳态心肺训练。",
+        "detail_placeholder": "如：阻力 8、坡度 6、心率 145",
+        "active": true,
+        "sort_order": 10
+      },
+      {
+        "id": "treadmill",
+        "name": "跑步机",
+        "description": "可记录配速、坡度或间歇结构。",
+        "detail_placeholder": "如：时速 9、坡度 3、4 x 4 分钟间歇",
+        "active": true,
+        "sort_order": 20
+      },
+      {
+        "id": "stair_climber",
+        "name": "爬楼机",
+        "description": "适合记录档位、步频和持续时长。",
+        "detail_placeholder": "如：档位 7、步频 80、全程不中断",
+        "active": true,
+        "sort_order": 30
+      },
+      {
+        "id": "bike",
+        "name": "单车",
+        "description": "适合恢复骑和中低冲击耐力训练。",
+        "detail_placeholder": "如：阻力 5、踏频 90、均速 28",
+        "active": true,
+        "sort_order": 40
+      },
+      {
+        "id": "rower",
+        "name": "划船机",
+        "description": "可结合配速和阻力记录中高强度有氧。",
+        "detail_placeholder": "如：阻力 6、配速 2:15、2000 米",
+        "active": true,
+        "sort_order": 50
       }
     ]
   }

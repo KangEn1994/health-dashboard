@@ -46,7 +46,7 @@ fun HealthDashboardApp() {
                     onLogin = { password, apiBaseUrl -> sessionViewModel.login(password, apiBaseUrl) },
                 )
             } else {
-                val items = listOf(Screen.Records, Screen.Workout, Screen.Charts)
+                val items = listOf(Screen.Data, Screen.Weight, Screen.Training)
                 Scaffold(
                     bottomBar = {
                         NavigationBar {
@@ -74,22 +74,22 @@ fun HealthDashboardApp() {
                 ) { innerPadding ->
                     NavHost(
                         navController = navController,
-                        startDestination = Screen.Records.route,
+                        startDestination = Screen.Data.route,
                         modifier = Modifier.padding(innerPadding),
                     ) {
-                        composable(Screen.Records.route) {
-                            RecordsScreen(
-                                repository = healthRepository,
-                                onLogout = { sessionViewModel.logout() },
-                            )
-                        }
-                        composable(Screen.Charts.route) {
+                        composable(Screen.Data.route) {
                             ChartScreen(
                                 repository = healthRepository,
                                 onLogout = { sessionViewModel.logout() },
                             )
                         }
-                        composable(Screen.Workout.route) {
+                        composable(Screen.Weight.route) {
+                            RecordsScreen(
+                                repository = healthRepository,
+                                onLogout = { sessionViewModel.logout() },
+                            )
+                        }
+                        composable(Screen.Training.route) {
                             WorkoutScreen(
                                 repository = healthRepository,
                                 onLogout = { sessionViewModel.logout() },
@@ -103,7 +103,7 @@ fun HealthDashboardApp() {
 }
 
 sealed class Screen(val route: String, val label: String) {
-    data object Records : Screen("records", "记录")
-    data object Workout : Screen("workout", "训练")
-    data object Charts : Screen("charts", "图表")
+    data object Data : Screen("data", "数据")
+    data object Weight : Screen("weight", "体重")
+    data object Training : Screen("training", "训练")
 }

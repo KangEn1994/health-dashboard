@@ -4,13 +4,14 @@ import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.CalendarMonth
@@ -38,7 +39,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -54,6 +55,8 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Calendar
 
+private val BeijingZoneOffset: ZoneOffset = ZoneOffset.ofHours(8)
+
 @Composable
 fun RecordsScreen(
     repository: HealthRepository,
@@ -67,10 +70,11 @@ fun RecordsScreen(
     val values = remember { mutableStateMapOf<String, String>() }
     var loading by remember { mutableStateOf(true) }
     var note by remember { mutableStateOf("") }
-    var selectedDateTime by remember { mutableStateOf(LocalDateTime.now()) }
+    var selectedDateTime by remember { mutableStateOf(LocalDateTime.now(BeijingZoneOffset)) }
     var editingEntryId by remember { mutableStateOf<String?>(null) }
 
     val dateLabelFormatter = remember { DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm") }
+    val historyFormatter = remember { DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss") }
 
     suspend fun load() {
         loading = true
@@ -89,7 +93,7 @@ fun RecordsScreen(
         editingEntryId = null
         values.clear()
         note = ""
-        selectedDateTime = LocalDateTime.now()
+        selectedDateTime = LocalDateTime.now(BeijingZoneOffset)
     }
 
     fun openDateTimePicker() {
@@ -131,7 +135,7 @@ fun RecordsScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->
         LazyColumn(
-            modifier = Modifier
+            modifier = androidx.compose.ui.Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp),
@@ -139,12 +143,12 @@ fun RecordsScreen(
         ) {
             item {
                 AppGradientHeader(
-                    title = "记录管理",
-                    subtitle = "支持新增、编辑、删除记录，并可自定义记录时间。",
+                    title = "体重记录",
+                    subtitle = "只做体重、体脂等健康数据录入与编辑，图表和日历总览统一在数据页查看。",
                     action = {
                         TextButton(onClick = onLogout) {
                             Icon(Icons.AutoMirrored.Rounded.Logout, contentDescription = null)
-                            Text("退出", modifier = Modifier.padding(start = 4.dp), color = androidx.compose.ui.graphics.Color.White)
+                            Text("退出", modifier = androidx.compose.ui.Modifier.padding(start = 4.dp), color = Color.White)
                         }
                     },
                 )
@@ -152,24 +156,24 @@ fun RecordsScreen(
 
             item {
                 SectionCard(
-                    title = if (editingEntryId == null) "新增记录" else "编辑记录",
+                    title = if (editingEntryId == null) "新增体重记录" else "编辑体重记录",
                     subtitle = "默认当前时间，也可以手动改成历史时间。",
                 ) {
                     OutlinedButton(
                         onClick = { openDateTimePicker() },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = androidx.compose.ui.Modifier.fillMaxWidth(),
                     ) {
                         Icon(Icons.Rounded.CalendarMonth, contentDescription = null)
                         Text(
                             text = selectedDateTime.format(dateLabelFormatter),
-                            modifier = Modifier.padding(start = 8.dp),
+                            modifier = androidx.compose.ui.Modifier.padding(start = 8.dp),
                         )
                     }
                     metrics.forEach { metric ->
                         OutlinedTextField(
                             value = values[metric.id].orEmpty(),
                             onValueChange = { values[metric.id] = it },
-                            modifier = Modifier
+                            modifier = androidx.compose.ui.Modifier
                                 .fillMaxWidth()
                                 .padding(top = 10.dp),
                             label = { Text("${metric.label} (${metric.unit})") },
@@ -179,7 +183,7 @@ fun RecordsScreen(
                     OutlinedTextField(
                         value = note,
                         onValueChange = { note = it },
-                        modifier = Modifier
+                        modifier = androidx.compose.ui.Modifier
                             .fillMaxWidth()
                             .padding(top = 10.dp),
                         label = { Text("备注") },
@@ -187,15 +191,17 @@ fun RecordsScreen(
                     Button(
                         onClick = {
                             scope.launch {
+                                val isNew = editingEntryId == null
+                                val entryId = editingEntryId
                                 val payload = EntryRequest(
-                                    recorded_at = selectedDateTime.atOffset(ZoneOffset.ofHours(8)).toString(),
+                                    recorded_at = selectedDateTime.atOffset(BeijingZoneOffset).toString(),
                                     values = values
                                         .filterValues { it.isNotBlank() }
                                         .mapValues { (_, value) -> value.toDoubleOrNull() ?: value },
                                     note = note,
                                     tags = emptyList(),
                                 )
-                                val operation = editingEntryId?.let { id ->
+                                val operation = entryId?.let { id ->
                                     runCatching { repository.updateEntry(id, payload) }
                                 } ?: runCatching {
                                     repository.createEntry(payload)
@@ -211,14 +217,14 @@ fun RecordsScreen(
                                                 android.content.ComponentName(context, WeightWidgetProvider::class.java),
                                             ),
                                         )
-                                        snackbarHostState.showSnackbar(if (editingEntryId == null) "记录已保存" else "记录已更新")
+                                        snackbarHostState.showSnackbar(if (isNew) "记录已保存" else "记录已更新")
                                     }
                                     .onFailure {
                                         snackbarHostState.showSnackbar(it.message ?: "保存失败")
                                     }
                             }
                         },
-                        modifier = Modifier
+                        modifier = androidx.compose.ui.Modifier
                             .fillMaxWidth()
                             .padding(top = 14.dp),
                     ) {
@@ -227,7 +233,7 @@ fun RecordsScreen(
                     if (editingEntryId != null) {
                         OutlinedButton(
                             onClick = { resetForm() },
-                            modifier = Modifier
+                            modifier = androidx.compose.ui.Modifier
                                 .fillMaxWidth()
                                 .padding(top = 10.dp),
                         ) {
@@ -252,64 +258,94 @@ fun RecordsScreen(
                     )
                 }
                 items(entries, key = { it.id }) { entry ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(22.dp),
-                    ) {
-                        Column(modifier = Modifier.padding(18.dp)) {
-                            Text(entry.recorded_at, style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                entry.values.entries.joinToString(" · ") { "${it.key}: ${it.value}" },
-                                modifier = Modifier.padding(top = 8.dp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            if (entry.note.isNotBlank()) {
-                                Text(
-                                    entry.note,
-                                    modifier = Modifier.padding(top = 8.dp),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                    RecordHistoryCard(
+                        entry = entry,
+                        metrics = metrics,
+                        formatter = historyFormatter,
+                        onEdit = { applyEntryToForm(entry) },
+                        onDelete = {
+                            scope.launch {
+                                runCatching { repository.deleteEntry(entry.id) }
+                                    .onSuccess {
+                                        if (editingEntryId == entry.id) resetForm()
+                                        load()
+                                        WeightWidgetProvider.updateWidgets(
+                                            context,
+                                            android.appwidget.AppWidgetManager.getInstance(context),
+                                            android.appwidget.AppWidgetManager.getInstance(context).getAppWidgetIds(
+                                                android.content.ComponentName(context, WeightWidgetProvider::class.java),
+                                            ),
+                                        )
+                                        snackbarHostState.showSnackbar("记录已删除")
+                                    }
+                                    .onFailure {
+                                        snackbarHostState.showSnackbar(it.message ?: "删除失败")
+                                    }
                             }
-                            Row(modifier = Modifier.padding(top = 8.dp)) {
-                                TextButton(onClick = { applyEntryToForm(entry) }) {
-                                    Icon(Icons.Rounded.Edit, contentDescription = null)
-                                    Text("编辑", modifier = Modifier.padding(start = 6.dp))
-                                }
-                                TextButton(
-                                    onClick = {
-                                        scope.launch {
-                                            runCatching { repository.deleteEntry(entry.id) }
-                                                .onSuccess {
-                                                    if (editingEntryId == entry.id) resetForm()
-                                                    load()
-                                                    WeightWidgetProvider.updateWidgets(
-                                                        context,
-                                                        android.appwidget.AppWidgetManager.getInstance(context),
-                                                        android.appwidget.AppWidgetManager.getInstance(context).getAppWidgetIds(
-                                                            android.content.ComponentName(context, WeightWidgetProvider::class.java),
-                                                        ),
-                                                    )
-                                                    snackbarHostState.showSnackbar("记录已删除")
-                                                }
-                                                .onFailure {
-                                                    snackbarHostState.showSnackbar(it.message ?: "删除失败")
-                                                }
-                                        }
-                                    },
-                                ) {
-                                    Icon(Icons.Rounded.Delete, contentDescription = null)
-                                    Text("删除", modifier = Modifier.padding(start = 6.dp))
-                                }
-                            }
-                        }
-                    }
+                        },
+                    )
                 }
             }
 
             item {
-                androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = androidx.compose.ui.Modifier.height(12.dp))
             }
         }
     }
+}
+
+@Composable
+private fun RecordHistoryCard(
+    entry: EntryDto,
+    metrics: List<MetricDto>,
+    formatter: DateTimeFormatter,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val metricMap = metrics.associateBy { it.id }
+    Card(
+        modifier = androidx.compose.ui.Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(22.dp),
+    ) {
+        Column(modifier = androidx.compose.ui.Modifier.padding(18.dp)) {
+            Text(formatEntryDateTime(entry.recorded_at, formatter), style = MaterialTheme.typography.titleMedium)
+            Text(
+                entry.values.entries.joinToString(" · ") {
+                    val metric = metricMap[it.key]
+                    val label = metric?.label ?: it.key
+                    val unit = metric?.unit.orEmpty()
+                    "$label: ${it.value}$unit"
+                },
+                modifier = androidx.compose.ui.Modifier.padding(top = 8.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (entry.note.isNotBlank()) {
+                Text(
+                    entry.note,
+                    modifier = androidx.compose.ui.Modifier.padding(top = 8.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            androidx.compose.foundation.layout.Row(modifier = androidx.compose.ui.Modifier.padding(top = 8.dp)) {
+                TextButton(onClick = onEdit) {
+                    Icon(Icons.Rounded.Edit, contentDescription = null)
+                    Text("编辑", modifier = androidx.compose.ui.Modifier.padding(start = 6.dp))
+                }
+                TextButton(onClick = onDelete) {
+                    Icon(Icons.Rounded.Delete, contentDescription = null)
+                    Text("删除", modifier = androidx.compose.ui.Modifier.padding(start = 6.dp))
+                }
+            }
+        }
+    }
+}
+
+private fun formatEntryDateTime(
+    recordedAt: String,
+    formatter: DateTimeFormatter,
+): String {
+    return runCatching {
+        OffsetDateTime.parse(recordedAt).withOffsetSameInstant(BeijingZoneOffset).format(formatter)
+    }.getOrDefault(recordedAt)
 }

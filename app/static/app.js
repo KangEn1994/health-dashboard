@@ -84,19 +84,20 @@ const BEIJING_TIMEZONE = "Asia/Shanghai";
 function formatBeijingDateTime(value, includeTime = true) {
   if (!value) return "--";
   const date = new Date(value);
-  const options = {
+  const parts = new Intl.DateTimeFormat("sv-SE", {
     timeZone: BEIJING_TIMEZONE,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  };
-  if (includeTime) {
-    options.hour = "2-digit";
-    options.minute = "2-digit";
-    options.hour12 = false;
-  }
-  const formatted = new Intl.DateTimeFormat("zh-CN", options).format(date);
-  return formatted.replace(/\//g, "-");
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const get = (type) => parts.find((part) => part.type === type)?.value || "";
+  const datePart = `${get("year")}-${get("month")}-${get("day")}`;
+  if (!includeTime) return datePart;
+  return `${datePart} ${get("hour")}:${get("minute")}:${get("second")}`;
 }
 
 function toBeijingDateInputValue(date = new Date()) {
@@ -178,6 +179,12 @@ function summaryCard(label, unit, summary) {
 
 function renderDashboard(data) {
   const metrics = Object.fromEntries(data.metrics.map((metric) => [metric.id, metric]));
+  metrics.workout_duration_min = {
+    id: "workout_duration_min",
+    label: "运动时长",
+    unit: "分钟",
+    color: "#0f766e",
+  };
   const summaryNode = document.getElementById("summaryGrid");
   const cards = [
     ["weight_kg", "体重"],
@@ -211,7 +218,7 @@ function renderDashboard(data) {
     </div>
   `;
 
-  const trendMetrics = ["weight_kg", "body_fat_pct", "bmi", "waist_cm"];
+  const trendMetrics = ["weight_kg", "body_fat_pct", "bmi", "waist_cm", "workout_duration_min"];
   const trendChartsGrid = document.getElementById("trendChartsGrid");
   trendChartsGrid.innerHTML = trendMetrics
     .map((metricId) => {
@@ -288,36 +295,56 @@ function renderDashboard(data) {
     ],
   });
 
-  const bestCorrelation = [...data.correlations].sort((a, b) => (Math.abs(b.correlation || 0) - Math.abs(a.correlation || 0)))[0];
-  if (bestCorrelation && bestCorrelation.points.length) {
-    makeChart("correlationChart", {
+  const correlationGrid = document.getElementById("correlationGrid");
+  const desiredCorrelations = ["body_fat_pct", "bmi", "workout_duration_min"];
+  const correlationMap = Object.fromEntries((data.correlations || []).map((item) => [item.metric_id, item]));
+  correlationGrid.innerHTML = desiredCorrelations
+    .map((metricId) => {
+      const metric = metrics[metricId] || { label: metricId, color: "#7c3aed" };
+      return `
+        <div class="mini-chart-card">
+          <h4>体重 vs ${metric.label}</h4>
+          <div class="mini-chart-meta">${metric.unit ? `单位 ${metric.unit} · ` : ""}北京时间</div>
+          <div id="correlation-${metricId}" class="chart mini"></div>
+        </div>
+      `;
+    })
+    .join("");
+
+  desiredCorrelations.forEach((metricId) => {
+    const metric = metrics[metricId] || { label: metricId, color: "#7c3aed" };
+    const correlation = correlationMap[metricId];
+    if (!correlation || !correlation.points.length) {
+      document.getElementById(`correlation-${metricId}`).outerHTML = `<div id="correlation-${metricId}" class="empty">至少需要体重和${metric.label}在同一天都有记录，相关性才会显示。</div>`;
+      return;
+    }
+    makeChart(`correlation-${metricId}`, {
       tooltip: { trigger: "item" },
+      grid: { left: 18, right: 18, top: 36, bottom: 26, containLabel: true },
       xAxis: { type: "value", name: "体重 kg" },
-      yAxis: { type: "value", name: metrics[bestCorrelation.metric_id]?.label || bestCorrelation.metric_id },
+      yAxis: { type: "value", name: metric.label },
       series: [
         {
           type: "scatter",
           symbolSize: 12,
-          data: bestCorrelation.points.map((point) => [point.x, point.y]),
-          itemStyle: { color: metrics[bestCorrelation.metric_id]?.color || "#7c3aed" },
+          data: correlation.points.map((point) => [point.x, point.y]),
+          itemStyle: { color: metric.color || "#7c3aed" },
         },
       ],
-      graphic: bestCorrelation.correlation === null ? [] : [
+      graphic: correlation.correlation === null ? [] : [
         {
           type: "text",
           left: "center",
           top: 10,
           style: {
-            text: `相关系数 r = ${bestCorrelation.correlation}`,
+            text: `相关系数 r = ${correlation.correlation}`,
             fill: "#60708b",
             font: "14px sans-serif",
           },
         },
       ],
     });
-  } else {
-    document.getElementById("correlationChart").outerHTML = `<div id="correlationChart" class="empty">至少需要两项可配对的数值指标记录，相关性图才会显示。</div>`;
-  }
+  });
 
   makeChart("heatmapChart", {
     tooltip: {},
@@ -871,10 +898,53 @@ async function initWorkoutsPage() {
   const recommendationList = document.getElementById("workoutRecommendationList");
   const exerciseRowsContainer = document.getElementById("workoutExerciseRows");
   const addExerciseRowButton = document.getElementById("addWorkoutExerciseRow");
+  const submitButton = document.getElementById("workoutSessionSubmit");
+  const cancelEditButton = document.getElementById("cancelWorkoutEdit");
   const helpers = createWorkoutHelpers();
 
   function setWorkoutDefaultRecordedAt() {
     sessionForm.recorded_at.value = toBeijingDateInputValue();
+  }
+
+  function resetWorkoutForm() {
+    sessionForm.reset();
+    sessionForm.session_id.value = "";
+    submitButton.textContent = "保存训练记录";
+    cancelEditButton.style.display = "none";
+    setWorkoutDefaultRecordedAt();
+    resetExerciseRows();
+  }
+
+  function applySessionToForm(session) {
+    sessionForm.session_id.value = session.id;
+    sessionForm.recorded_at.value = toBeijingDateInputValue(session.recorded_at);
+    sessionForm.plan_id.value = session.plan_id || "";
+    sessionForm.energy_level.value = session.energy_level ?? "";
+    sessionForm.note.value = session.note || "";
+    sessionForm.tags.value = (session.tags || []).join(", ");
+    const presets = (session.exercises || []).map((exercise) => ({
+      part_id: exercise.part_id,
+      exercise_id: exercise.exercise_id,
+      detail: exercise.detail || "",
+      sets: exercise.sets,
+      reps: exercise.reps,
+      weight_kg: exercise.weight_kg,
+      duration_minutes: exercise.duration_minutes,
+      rpe: exercise.rpe,
+    }));
+    resetExerciseRows(presets);
+    submitButton.textContent = "更新训练记录";
+    cancelEditButton.style.display = "";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function deleteSession(sessionId) {
+    await api.send(`/api/workouts/sessions/${sessionId}`, "DELETE");
+    if (sessionForm.session_id.value === sessionId) {
+      resetWorkoutForm();
+    }
+    updateStatus("workoutSessionStatus", "训练记录已删除")
+    await loadOverview();
   }
 
   function workoutExerciseRowTemplate(rowId) {
@@ -1064,10 +1134,32 @@ async function initWorkoutsPage() {
               <td>${exercises}</td>
               <td>${session.note || "<span class='muted'>无备注</span>"}</td>
               <td>${tags || "<span class='muted'>无标签</span>"}</td>
+              <td>
+                <div class="actions">
+                  <button type="button" class="secondary" data-edit-session="${session.id}">编辑</button>
+                  <button type="button" class="action-ghost-danger" data-delete-session="${session.id}">删除</button>
+                </div>
+              </td>
             </tr>
           `;
         })
         .join("");
+      sessionsBody.querySelectorAll("[data-edit-session]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const session = overview.sessions.find((item) => item.id === button.dataset.editSession);
+          if (session) applySessionToForm(session);
+        });
+      });
+      sessionsBody.querySelectorAll("[data-delete-session]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          if (!window.confirm("确认删除这条训练记录？")) return;
+          try {
+            await deleteSession(button.dataset.deleteSession);
+          } catch (error) {
+            updateStatus("workoutSessionStatus", parseError(error), true);
+          }
+        });
+      });
     }
   }
 
@@ -1077,7 +1169,9 @@ async function initWorkoutsPage() {
   }
 
   addExerciseRowButton.addEventListener("click", () => addExerciseRow());
+  cancelEditButton.addEventListener("click", () => resetWorkoutForm());
   sessionForm.plan_id.addEventListener("change", () => {
+    if (sessionForm.session_id.value) return;
     const selectedPlan = (helpers.getOverview()?.plans || []).find((plan) => plan.id === sessionForm.plan_id.value);
     if (!selectedPlan) return;
     const presets = selectedPlan.groups.flatMap((group) =>
@@ -1122,19 +1216,21 @@ async function initWorkoutsPage() {
           .filter(Boolean),
         exercises,
       };
-      await api.send("/api/workouts/sessions", "POST", payload);
-      updateStatus("workoutSessionStatus", "训练记录已保存");
-      sessionForm.reset();
-      setWorkoutDefaultRecordedAt();
-      resetExerciseRows();
+      if (sessionForm.session_id.value) {
+        await api.send(`/api/workouts/sessions/${sessionForm.session_id.value}`, "PUT", payload);
+        updateStatus("workoutSessionStatus", "训练记录已更新");
+      } else {
+        await api.send("/api/workouts/sessions", "POST", payload);
+        updateStatus("workoutSessionStatus", "训练记录已保存");
+      }
+      resetWorkoutForm();
       await loadOverview();
     } catch (error) {
       updateStatus("workoutSessionStatus", parseError(error), true);
     }
   });
 
-  setWorkoutDefaultRecordedAt();
-  resetExerciseRows();
+  resetWorkoutForm();
   await loadOverview();
 }
 

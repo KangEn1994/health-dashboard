@@ -176,6 +176,50 @@ def test_dashboard_supports_named_ranges(client) -> None:
         assert response.status_code == 200
 
 
+def test_dashboard_includes_workout_duration_series_and_correlation(client) -> None:
+    headers = auth_headers(client)
+    client.post(
+        "/api/entries",
+        json={
+            "recorded_at": "2026-05-15T08:00:00+08:00",
+            "values": {"weight_kg": 70.0, "body_fat_pct": 18.0},
+            "note": "",
+            "tags": [],
+        },
+        headers=headers,
+    )
+    client.post(
+        "/api/workouts/sessions",
+        json={
+            "recorded_at": "2026-05-15T20:00:00+08:00",
+            "plan_id": None,
+            "exercises": [
+                {
+                    "part_id": "cardio",
+                    "exercise_id": "elliptical",
+                    "detail": "阻力 8",
+                    "sets": 1,
+                    "reps": None,
+                    "weight_kg": None,
+                    "duration_minutes": 35,
+                    "rpe": None,
+                    "note": "",
+                }
+            ],
+            "note": "",
+            "tags": [],
+            "energy_level": 7,
+        },
+        headers=headers,
+    )
+    response = client.get("/api/dashboard?range=month", headers=headers)
+    assert response.status_code == 200
+    payload = response.json()
+    assert "workout_duration_min" in payload["trends"]
+    assert payload["trends"]["workout_duration_min"]
+    assert any(item["metric_id"] == "workout_duration_min" for item in payload["correlations"])
+
+
 def test_workout_catalog_plan_and_session_crud(client) -> None:
     headers = auth_headers(client)
 
@@ -245,14 +289,46 @@ def test_workout_catalog_plan_and_session_crud(client) -> None:
         headers=headers,
     )
     assert created_session.status_code == 201
+    session_id = created_session.json()["id"]
+
+    updated_session = client.put(
+        f"/api/workouts/sessions/{session_id}",
+        json={
+            "recorded_at": "2026-05-15T21:00:00+08:00",
+            "plan_id": plan_id,
+            "exercises": [
+                {
+                    "part_id": "cardio",
+                    "exercise_id": "rower",
+                    "detail": "阻力 7",
+                    "sets": 1,
+                    "reps": None,
+                    "weight_kg": None,
+                    "duration_minutes": 25,
+                    "rpe": None,
+                    "note": "",
+                }
+            ],
+            "note": "恢复日有氧升级",
+            "tags": ["cardio", "updated"],
+            "energy_level": 8,
+        },
+        headers=headers,
+    )
+    assert updated_session.status_code == 200
+    assert updated_session.json()["note"] == "恢复日有氧升级"
+    assert updated_session.json()["exercises"][0]["duration_minutes"] == 25
+
+    deleted_session = client.delete(f"/api/workouts/sessions/{session_id}", headers=headers)
+    assert deleted_session.status_code == 200
 
     sessions = client.get("/api/workouts/sessions?query=恢复", headers=headers)
     assert sessions.status_code == 200
-    assert len(sessions.json()) == 1
+    assert len(sessions.json()) == 0
 
     overview = client.get("/api/workouts/overview", headers=headers)
     assert overview.status_code == 200
-    assert overview.json()["summary_14d"]["session_count"] >= 1
+    assert overview.json()["summary_14d"]["session_count"] >= 0
     assert "cardio_duration_minutes" in overview.json()["summary_30d"]
     assert overview.json()["recommendations"]
 

@@ -161,6 +161,7 @@ class DashboardService:
         metrics = self.get_metrics()
         active_numeric = [metric for metric in metrics if metric["type"] == "number" and metric["active"]]
         entries = self.store.get_entries()
+        workout_sessions = self.store.get_workout_sessions()
         filtered = analytics.filter_entries_by_days(entries, days)
         metric_summaries = {}
         trend_series = {}
@@ -171,6 +172,9 @@ class DashboardService:
         bmi_series = analytics.series_for_metric(filtered, "bmi", profile["height_cm"])
         metric_summaries["bmi"] = analytics.summary_for_series(bmi_series)
         trend_series["bmi"] = bmi_series
+        workout_duration_series = analytics.workout_duration_series(workout_sessions, days)
+        metric_summaries["workout_duration_min"] = analytics.summary_for_series(workout_duration_series)
+        trend_series["workout_duration_min"] = workout_duration_series
         weight_series = trend_series.get("weight_kg", [])
         weight_velocity = None
         if len(weight_series) >= 2:
@@ -188,8 +192,12 @@ class DashboardService:
         }
         correlations = analytics.correlation_pairs(
             filtered,
-            [metric["id"] for metric in active_numeric] + ["bmi"],
+            ["weight_kg", "body_fat_pct", "bmi", "workout_duration_min"],
             profile["height_cm"],
+            {
+                analytics.parse_recorded_at_beijing(point["recorded_at"]).date().isoformat(): point["value"]
+                for point in workout_duration_series
+            },
         )
         return {
             "profile": profile,
