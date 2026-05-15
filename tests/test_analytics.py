@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from app import analytics
 
@@ -70,3 +71,26 @@ def test_workout_recommendations_include_frequency_signal() -> None:
     result = analytics.workout_recommendations(catalog, plans, sessions)
     assert any("训练次数偏少" in item or "没有覆盖" in item for item in result)
     assert any("有氧" in item for item in result)
+
+
+def test_workout_duration_series_fills_missing_days(monkeypatch) -> None:
+    fixed_now = datetime(2026, 5, 16, 12, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    monkeypatch.setattr(analytics, "now_beijing", lambda: fixed_now)
+    sessions = [
+        {
+            "recorded_at": "2026-05-14T20:00:00+08:00",
+            "exercises": [{"duration_minutes": 35}],
+        },
+        {
+            "recorded_at": "2026-05-16T20:00:00+08:00",
+            "exercises": [{"duration_minutes": 20}],
+        },
+    ]
+
+    series = analytics.workout_duration_series(sessions, days=2)
+
+    assert series == [
+        {"recorded_at": "2026-05-14T00:00:00+08:00", "value": 35.0},
+        {"recorded_at": "2026-05-15T00:00:00+08:00", "value": 0.0},
+        {"recorded_at": "2026-05-16T00:00:00+08:00", "value": 20.0},
+    ]

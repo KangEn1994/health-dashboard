@@ -82,14 +82,30 @@ def series_for_metric(
 
 def workout_duration_series(sessions: list[dict[str, Any]], days: int | None = None) -> list[dict[str, Any]]:
     relevant_sessions = sessions
+    today = now_beijing().date()
+    start_date = None
     if days is not None:
         cutoff = now_beijing() - timedelta(days=days)
+        start_date = cutoff.date()
         relevant_sessions = [session for session in sessions if parse_recorded_at_beijing(session["recorded_at"]) >= cutoff]
 
     buckets: dict[str, int] = defaultdict(int)
     for session in relevant_sessions:
         day_key = parse_recorded_at_beijing(session["recorded_at"]).date().isoformat()
         buckets[day_key] += sum(int(exercise.get("duration_minutes") or 0) for exercise in session.get("exercises", []))
+
+    if start_date is None and buckets:
+        start_date = min(datetime.fromisoformat(day).date() for day in buckets)
+
+    if start_date is not None:
+        total_days = (today - start_date).days
+        return [
+            {
+                "recorded_at": f"{(start_date + timedelta(days=offset)).isoformat()}T00:00:00+08:00",
+                "value": float(buckets.get((start_date + timedelta(days=offset)).isoformat(), 0)),
+            }
+            for offset in range(total_days + 1)
+        ]
 
     return [
         {"recorded_at": f"{day}T00:00:00+08:00", "value": float(total_minutes)}
