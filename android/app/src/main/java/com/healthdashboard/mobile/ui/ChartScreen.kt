@@ -204,7 +204,7 @@ fun ChartScreen(
                     val cardioDurationSeries = buildCardioDurationSeries(workoutOverview?.sessions.orEmpty(), startDate, endDate)
                     val weightSummary = summaryForSeries(filteredTrendMap["weight_kg"].orEmpty())
                     val bodyFatSummary = summaryForSeries(filteredTrendMap["body_fat_pct"].orEmpty())
-                    val durationSummary = summaryForSeries(cardioDurationSeries)
+                    val durationSummary = latestNonZeroSummary(cardioDurationSeries)
                     val bmiCurrent = dashboard!!.summaries["bmi"]?.latest
                     val trendSpecs = listOf(
                         MobileTrendSpec("weight_kg", "体重", "kg", "#155EEF", Icons.Rounded.MonitorWeight),
@@ -292,8 +292,8 @@ fun ChartScreen(
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    val weight = day.entries.firstNotNullOfOrNull { it.values["weight_kg"] as? Number }?.toDouble()
-                    val bodyFat = day.entries.firstNotNullOfOrNull { it.values["body_fat_pct"] as? Number }?.toDouble()
+                    val weight = day.entries.firstNotNullOfOrNull { numericValue(it.values["weight_kg"]) }
+                    val bodyFat = day.entries.firstNotNullOfOrNull { numericValue(it.values["body_fat_pct"]) }
                     if (weight != null || bodyFat != null) {
                         DetailPill(
                             background = ComposeColor(0xFFF5F8FF),
@@ -569,7 +569,7 @@ private fun buildCardioDurationSeries(
     startDate: LocalDate,
     endDate: LocalDate,
 ): List<TrendPointDto> {
-    return sessions
+    val durationByDate = sessions
         .mapNotNull { session ->
             val date = runCatching {
                 OffsetDateTime.parse(session.recorded_at).withOffsetSameInstant(BeijingOffset).toLocalDate()
@@ -578,19 +578,34 @@ private fun buildCardioDurationSeries(
             val duration = session.exercises
                 .filter { it.part_id == "cardio" }
                 .sumOf { it.duration_minutes ?: 0 }
-            if (duration <= 0) null else date to duration
+            date to duration
         }
         .groupBy({ it.first }, { it.second })
-        .map { (date, durations) ->
+        .mapValues { (_, durations) -> durations.sum() }
+
+    val totalDays = (endDate.toEpochDay() - startDate.toEpochDay()).coerceAtLeast(0)
+    return (0..totalDays).map { offset ->
+        val date = startDate.plusDays(offset)
             TrendPointDto(
                 recorded_at = "${date}T00:00:00+08:00",
-                value = durations.sum().toDouble(),
+                value = (durationByDate[date] ?: 0).toDouble(),
             )
-        }
-        .sortedBy { it.recorded_at }
+    }
 }
 
 private fun summaryForSeries(series: List<TrendPointDto>): TrendSummary = TrendSummary(latest = series.lastOrNull()?.value)
+
+private fun latestNonZeroSummary(series: List<TrendPointDto>): TrendSummary {
+    return TrendSummary(latest = series.lastOrNull { it.value != 0.0 }?.value)
+}
+
+private fun numericValue(value: Any?): Double? {
+    return when (value) {
+        is Number -> value.toDouble()
+        is String -> value.toDoubleOrNull()
+        else -> null
+    }
+}
 
 private fun buildMonthCalendar(entries: List<EntryDto>, workouts: List<WorkoutCalendarPointDto>, year: Int, month: Int): List<DataCalendarDay> {
     val targetMonth = YearMonth.of(year, month)
