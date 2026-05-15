@@ -311,15 +311,23 @@ def workout_volume_summary(sessions: list[dict[str, Any]], days: int = 30) -> di
     part_counts: dict[str, int] = defaultdict(int)
     plan_counts: dict[str, int] = defaultdict(int)
     total_sets = 0
+    cardio_sessions = 0
+    cardio_duration_minutes = 0
     session_details = []
     for session in sorted(filtered, key=lambda item: parse_recorded_at(item["recorded_at"])):
         part_ids = set()
+        session_has_cardio = False
         for exercise in session.get("exercises", []):
             part_id = exercise.get("part_id")
             if part_id:
                 part_counts[part_id] += 1
                 part_ids.add(part_id)
             total_sets += int(exercise.get("sets") or 0)
+            if part_id == "cardio":
+                session_has_cardio = True
+                cardio_duration_minutes += int(exercise.get("duration_minutes") or 0)
+        if session_has_cardio:
+            cardio_sessions += 1
         if session.get("plan_id"):
             plan_counts[session["plan_id"]] += 1
         session_details.append(
@@ -335,6 +343,8 @@ def workout_volume_summary(sessions: list[dict[str, Any]], days: int = 30) -> di
         "total_sets": total_sets,
         "part_counts": dict(sorted(part_counts.items(), key=lambda item: (-item[1], item[0]))),
         "plan_counts": dict(sorted(plan_counts.items(), key=lambda item: (-item[1], item[0]))),
+        "cardio_sessions": cardio_sessions,
+        "cardio_duration_minutes": cardio_duration_minutes,
         "sessions": session_details,
     }
 
@@ -345,9 +355,11 @@ def workout_recommendations(
     sessions: list[dict[str, Any]],
 ) -> list[str]:
     summary = workout_volume_summary(sessions, 14)
+    summary_30d = workout_volume_summary(sessions, 30)
     recommendations = []
     part_lookup = {part["id"]: part["label"] for part in catalog.get("parts", [])}
     active_part_ids = [part["id"] for part in catalog.get("parts", []) if part.get("active")]
+    cardio_part_ids = {part["id"] for part in catalog.get("parts", []) if "有氧" in part.get("label", "") or "cardio" in part.get("id", "")}
 
     if summary["session_count"] == 0:
         recommendations.append("最近 14 天还没有训练记录，先从一个内置分组计划开始，建立最基本的节奏。")
@@ -365,6 +377,13 @@ def workout_recommendations(
             recommendations.append("单次训练总组数偏少，若恢复正常，可把主练部位提升到 12-18 组。")
         elif avg_sets > 28:
             recommendations.append("单次训练量偏高，注意主动作后的疲劳管理，必要时拆分成更多训练日。")
+
+    if cardio_part_ids and not any(summary_30d["part_counts"].get(part_id, 0) for part_id in cardio_part_ids):
+        recommendations.append("最近 30 天还没有记录有氧，建议每周补 2-3 次 20 分钟以上心肺训练，优先从椭圆机或跑步机开始。")
+    elif cardio_part_ids and any(summary_30d["part_counts"].get(part_id, 0) for part_id in cardio_part_ids):
+        recommendations.append("已有有氧记录，继续补充阻力、坡度、配速或心率细节，后续更容易看出耐力提升趋势。")
+        if summary_30d["cardio_duration_minutes"] > 0:
+            recommendations.append(f"最近 30 天累计有氧 {summary_30d['cardio_duration_minutes']} 分钟，可以继续稳定拉高到每周 90-150 分钟。")
 
     recent_plan_ids = {session.get("plan_id") for session in sessions[-6:] if session.get("plan_id")}
     available_active_plans = [plan for plan in plans if plan.get("active")]

@@ -27,6 +27,12 @@ class HealthRepository(private val authRepository: AuthRepository) {
     suspend fun getDashboard(range: String): DashboardDto =
         authRepository.service().getDashboard(range)
 
+    suspend fun getWorkoutOverview(): WorkoutOverviewDto =
+        authRepository.service().getWorkoutOverview()
+
+    suspend fun createWorkoutSession(payload: WorkoutSessionRequest): WorkoutSessionDto =
+        authRepository.service().createWorkoutSession(payload)
+
     suspend fun getWidgetMetricOptions(): List<MetricDto> {
         return getMetrics().filter { it.active && it.type == "number" }
     }

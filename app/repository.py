@@ -19,6 +19,38 @@ from app.defaults import (
 )
 
 
+def _merge_default_workout_catalog(existing: dict[str, Any], default: dict[str, Any]) -> dict[str, Any]:
+    merged = deepcopy(existing)
+    merged.setdefault("parts", [])
+    merged.setdefault("exercises", {})
+
+    existing_parts = {part["id"]: part for part in merged["parts"]}
+    changed = False
+
+    for default_part in default.get("parts", []):
+        if default_part["id"] not in existing_parts:
+            merged["parts"].append(deepcopy(default_part))
+            changed = True
+
+    for part_id, default_exercises in default.get("exercises", {}).items():
+        bucket = merged["exercises"].setdefault(part_id, [])
+        existing_exercise_ids = {exercise["id"] for exercise in bucket}
+        for default_exercise in default_exercises:
+            if default_exercise["id"] not in existing_exercise_ids:
+                bucket.append(deepcopy(default_exercise))
+                changed = True
+
+    return merged if changed else existing
+
+
+def _merge_default_workout_plans(existing: list[dict[str, Any]], default: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    existing_ids = {plan["id"] for plan in existing}
+    missing = [deepcopy(plan) for plan in default if plan["id"] not in existing_ids]
+    if not missing:
+        return existing
+    return [*existing, *missing]
+
+
 def default_data_dir() -> Path:
     configured = os.getenv("HEALTH_DASHBOARD_DATA_DIR")
     if configured:
@@ -73,6 +105,20 @@ class JsonStore:
         for path, payload in defaults.items():
             if not path.exists():
                 self._atomic_write(path, payload)
+        self._ensure_workout_catalog_defaults()
+        self._ensure_workout_plan_defaults()
+
+    def _ensure_workout_catalog_defaults(self) -> None:
+        catalog = self._read_json(self.workout_catalog_path)
+        merged = _merge_default_workout_catalog(catalog, DEFAULT_WORKOUT_CATALOG)
+        if merged is not catalog:
+            self._write_json(self.workout_catalog_path, merged)
+
+    def _ensure_workout_plan_defaults(self) -> None:
+        plans = self._read_json(self.workout_plans_path)
+        merged = _merge_default_workout_plans(plans, DEFAULT_WORKOUT_PLANS)
+        if merged is not plans:
+            self._write_json(self.workout_plans_path, merged)
 
     def _atomic_write(self, path: Path, payload: Any) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)

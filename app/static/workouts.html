@@ -4,9 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>训练记录 - Health Dashboard</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20260515-workout-ui-3" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260515-workout-ui-5" />
     <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
-    <script defer src="/static/app.js?v=20260515-workout-ui-3"></script>
+    <script defer src="/static/app.js?v=20260515-workout-ui-5"></script>
   </head>
   <body data-page="workouts">
     <div class="shell">
@@ -32,7 +32,7 @@
       <div class="card-grid">
         <section class="panel span-7">
           <h3>记录一次训练</h3>
-          <p class="muted">支持一次录入多个动作。可先选计划，再按需要追加动作。</p>
+            <p class="muted">支持一次录入多个动作，也支持椭圆机、跑步机、爬楼机等有氧项目。可先选计划，再按需要追加动作。</p>
           <div id="workoutSessionStatus" class="status-pill">等待操作</div>
           <form id="workoutSessionForm">
             <div class="form-grid">
@@ -55,7 +55,7 @@
             </label>
             <label>
               备注
-              <textarea name="note" placeholder="例如：今天卧推状态不错，后半程疲劳上来比较快。"></textarea>
+              <textarea name="note" placeholder="例如：今天力量训练后补了 25 分钟椭圆机，心率整体比较稳。"></textarea>
             </label>
             <div class="actions">
               <button type="button" class="secondary" id="addWorkoutExerciseRow">新增一个动作</button>

@@ -706,7 +706,7 @@ function createWorkoutHelpers() {
       .join("");
     const selectedExercise = exercises.find((exercise) => exercise.id === select.value) || exercises[0];
     if (selectedExercise) {
-      detailInput.placeholder = selectedExercise.detail_placeholder || "握距、节奏、器械细节等";
+      detailInput.placeholder = selectedExercise.detail_placeholder || "阻力、坡度、配速、握距或器械细节等";
       select.value = selectedExercise.id;
     }
   }
@@ -769,15 +769,21 @@ function renderWorkoutCatalogSummary(helpers, presetOverviewGrid, catalogPanels,
         return `
           <div class="panel">
             <div class="actions" style="justify-content: space-between; align-items: center;">
-              <h4>${part.label}</h4>
-              <span class="tag" style="background:${part.color}22;color:${part.color};">${exercises.length} 个动作</span>
+              <div class="actions" style="gap:10px; align-items:center;">
+                <h4>${part.label}</h4>
+                <span class="tag" style="background:${part.color}22;color:${part.color};">${exercises.length} 个动作</span>
+              </div>
+              <button type="button" class="action-ghost-danger" data-delete-part="${part.id}">删除部位</button>
             </div>
             <div class="list-grid compact-list">
               ${exercises
                 .map(
                   (exercise) => `
                     <div class="compact-item">
-                      <strong>${exercise.name}</strong>
+                      <div class="compact-item-head">
+                        <strong>${exercise.name}</strong>
+                        <button type="button" class="action-ghost-danger" data-delete-exercise="${part.id}:${exercise.id}">删除动作</button>
+                      </div>
                       <div class="muted">${exercise.description || "无描述"}</div>
                       <div class="tiny-note">${exercise.detail_placeholder || "可自由填写动作细节"}</div>
                     </div>
@@ -798,8 +804,11 @@ function renderWorkoutCatalogSummary(helpers, presetOverviewGrid, catalogPanels,
             (plan) => `
               <div class="panel">
                 <div class="actions" style="justify-content: space-between; align-items: center;">
-                  <h4>${plan.name}</h4>
-                  <span class="tag">${plan.groups.length} 个组</span>
+                  <div class="actions" style="gap:10px; align-items:center;">
+                    <h4>${plan.name}</h4>
+                    <span class="tag">${plan.groups.length} 个组</span>
+                  </div>
+                  <button type="button" class="action-ghost-danger" data-delete-plan="${plan.id}">删除计划</button>
                 </div>
                 <div class="muted" style="margin-bottom: 12px;">${plan.description || "无计划说明"}</div>
                 <div class="list-grid compact-list">
@@ -836,9 +845,9 @@ function renderWorkoutRecommendations(overview, summaryGrid, recommendationList)
       <div class="delta">总组数 ${overview.summary_14d.total_sets}</div>
     </div>
     <div class="summary-card">
-      <div class="label">近 30 天训练</div>
-      <div class="value">${overview.summary_30d.session_count}</div>
-      <div class="delta">计划 ${Object.keys(overview.summary_30d.plan_counts || {}).length} 种</div>
+      <div class="label">近 30 天有氧</div>
+      <div class="value">${overview.summary_30d.cardio_sessions || 0}</div>
+      <div class="delta">累计 ${overview.summary_30d.cardio_duration_minutes || 0} 分钟</div>
     </div>
     <div class="summary-card">
       <div class="label">活跃部位覆盖</div>
@@ -889,30 +898,66 @@ async function initWorkoutsPage() {
             <input type="text" name="detail" placeholder="握距、节奏、器械细节等" />
           </label>
         </div>
-        <div class="form-grid">
-          <label>
+        <div class="form-grid workout-strength-fields">
+          <label class="field-sets">
             组数
             <input type="number" name="sets" min="1" max="50" value="4" />
           </label>
-          <label>
+          <label class="field-reps">
             次数
             <input type="number" name="reps" min="1" max="500" value="10" />
           </label>
-          <label>
+          <label class="field-weight">
             重量（kg）
             <input type="number" name="weight_kg" min="0" step="0.5" />
           </label>
-          <label>
+          <label class="field-duration">
             时长（分钟）
             <input type="number" name="duration_minutes" min="0" />
           </label>
-          <label>
+          <label class="field-rpe">
             RPE
             <input type="number" name="rpe" min="0" max="10" step="0.5" />
           </label>
         </div>
       </div>
     `;
+  }
+
+  function syncWorkoutRowMode(rowNode) {
+    const partSelect = rowNode.querySelector('select[name="part_id"]');
+    const setsInput = rowNode.querySelector('input[name="sets"]');
+    const repsInput = rowNode.querySelector('input[name="reps"]');
+    const weightInput = rowNode.querySelector('input[name="weight_kg"]');
+    const durationInput = rowNode.querySelector('input[name="duration_minutes"]');
+    const detailInput = rowNode.querySelector('input[name="detail"]');
+    const setsField = rowNode.querySelector(".field-sets");
+    const repsField = rowNode.querySelector(".field-reps");
+    const weightField = rowNode.querySelector(".field-weight");
+    const rpeField = rowNode.querySelector(".field-rpe");
+    const isCardio = partSelect.value === "cardio";
+
+    if (isCardio) {
+      setsInput.value = "1";
+      repsInput.value = "";
+      weightInput.value = "";
+      rowNode.querySelector('input[name="rpe"]').value = "";
+      durationInput.required = true;
+      durationInput.placeholder = "建议填写时长";
+      detailInput.placeholder = detailInput.placeholder || "阻力、坡度、配速、心率等";
+      if (setsField) setsField.style.display = "none";
+      if (repsField) repsField.style.display = "none";
+      if (weightField) weightField.style.display = "none";
+      if (rpeField) rpeField.style.display = "none";
+    } else {
+      if (!setsInput.value) setsInput.value = "4";
+      durationInput.required = false;
+      durationInput.placeholder = "";
+      if (setsField) setsField.style.display = "";
+      if (repsField) repsField.style.display = "";
+      if (weightField) weightField.style.display = "";
+      if (rpeField) rpeField.style.display = "";
+    }
   }
 
   function bindExerciseRow(rowNode, preset = {}) {
@@ -934,9 +979,11 @@ async function initWorkoutsPage() {
     if (preset.weight_kg !== undefined && preset.weight_kg !== null) rowNode.querySelector('input[name="weight_kg"]').value = preset.weight_kg;
     if (preset.duration_minutes !== undefined && preset.duration_minutes !== null) rowNode.querySelector('input[name="duration_minutes"]').value = preset.duration_minutes;
     if (preset.rpe !== undefined && preset.rpe !== null) rowNode.querySelector('input[name="rpe"]').value = preset.rpe;
+    syncWorkoutRowMode(rowNode);
 
     partSelect.addEventListener("change", () => {
       helpers.fillSessionExerciseSelect(exerciseSelect, detailInput, partSelect.value);
+      syncWorkoutRowMode(rowNode);
     });
     exerciseSelect.addEventListener("change", () => {
       helpers.fillSessionExerciseSelect(exerciseSelect, detailInput, partSelect.value);
@@ -987,6 +1034,7 @@ async function initWorkoutsPage() {
         helpers.fillSelectOptions(partSelect, helpers.activeParts(), "", "id", "label");
         partSelect.value = helpers.activeParts().find((part) => part.id === partSelect.value)?.id || helpers.activeParts()[0]?.id || "";
         helpers.fillSessionExerciseSelect(exerciseSelect, detailInput, partSelect.value);
+        syncWorkoutRowMode(rowNode);
       });
     }
 
@@ -999,7 +1047,13 @@ async function initWorkoutsPage() {
             .map((exercise) => {
               const part = helpers.activeParts().find((item) => item.id === exercise.part_id);
               const exerciseDef = helpers.exercisesForPart(exercise.part_id).find((item) => item.id === exercise.exercise_id);
-              return `${part?.label || exercise.part_id} / ${exerciseDef?.name || exercise.exercise_id} · ${exercise.sets}组${exercise.reps ? ` x ${exercise.reps}次` : ""}${exercise.weight_kg ? ` · ${exercise.weight_kg}kg` : ""}${exercise.detail ? `<br/><span class="muted">${exercise.detail}</span>` : ""}`;
+              const isCardio = exercise.part_id === "cardio";
+              const metricBits = isCardio ? [] : [`${exercise.sets}组`];
+              if (!isCardio && exercise.reps) metricBits.push(`x ${exercise.reps}次`);
+              if (!isCardio && exercise.weight_kg) metricBits.push(`${exercise.weight_kg}kg`);
+              if (exercise.duration_minutes) metricBits.push(`${exercise.duration_minutes}分钟`);
+              if (!isCardio && exercise.rpe !== null && exercise.rpe !== undefined) metricBits.push(`RPE ${exercise.rpe}`);
+              return `${part?.label || exercise.part_id} / ${exerciseDef?.name || exercise.exercise_id} · ${metricBits.join(" · ")}${exercise.detail ? `<br/><span class="muted">${exercise.detail}</span>` : ""}`;
             })
             .join("<br/><br/>");
           const tags = (session.tags || []).map((tag) => `<span class="tag">${tag}</span>`).join("");
@@ -1048,7 +1102,15 @@ async function initWorkoutsPage() {
         duration_minutes: rowNode.querySelector('input[name="duration_minutes"]').value ? Number(rowNode.querySelector('input[name="duration_minutes"]').value) : null,
         rpe: rowNode.querySelector('input[name="rpe"]').value ? Number(rowNode.querySelector('input[name="rpe"]').value) : null,
         note: "",
-      }));
+      })).map((exercise) => exercise.part_id === "cardio"
+        ? {
+            ...exercise,
+            sets: 1,
+            reps: null,
+            weight_kg: null,
+            rpe: null,
+          }
+        : exercise);
       const payload = {
         recorded_at: `${sessionForm.recorded_at.value}:00+08:00`,
         plan_id: sessionForm.plan_id.value || null,
@@ -1089,8 +1151,54 @@ async function initWorkoutSettingsPage() {
   const presetOverviewGrid = document.getElementById("presetOverviewGrid");
   const helpers = createWorkoutHelpers();
 
+  function bindDeleteActions() {
+    catalogPanels.querySelectorAll("[data-delete-part]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const partId = button.dataset.deletePart;
+        if (!window.confirm(`确认删除训练部位 ${partId}？若已被计划或记录使用，将无法删除。`)) return;
+        try {
+          await api.send(`/api/workouts/parts/${partId}`, "DELETE");
+          updateStatus("workoutPartStatus", "训练部位已删除");
+          await loadOverview();
+        } catch (error) {
+          updateStatus("workoutPartStatus", parseError(error), true);
+        }
+      });
+    });
+
+    catalogPanels.querySelectorAll("[data-delete-exercise]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const [partId, exerciseId] = String(button.dataset.deleteExercise || "").split(":");
+        if (!partId || !exerciseId) return;
+        if (!window.confirm(`确认删除动作 ${exerciseId}？若已被计划或记录使用，将无法删除。`)) return;
+        try {
+          await api.send(`/api/workouts/parts/${partId}/exercises/${exerciseId}`, "DELETE");
+          updateStatus("workoutExerciseStatus", "训练动作已删除");
+          await loadOverview();
+        } catch (error) {
+          updateStatus("workoutExerciseStatus", parseError(error), true);
+        }
+      });
+    });
+
+    planPanels.querySelectorAll("[data-delete-plan]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const planId = button.dataset.deletePlan;
+        if (!window.confirm(`确认删除训练计划 ${planId}？`)) return;
+        try {
+          await api.send(`/api/workouts/plans/${planId}`, "DELETE");
+          updateStatus("workoutPlanStatus", "训练计划已删除");
+          await loadOverview();
+        } catch (error) {
+          updateStatus("workoutPlanStatus", parseError(error), true);
+        }
+      });
+    });
+  }
+
   function renderOverview() {
     renderWorkoutCatalogSummary(helpers, presetOverviewGrid, catalogPanels, planPanels);
+    bindDeleteActions();
     const parts = helpers.activeParts();
     const partOptions = parts.map((part) => `<option value="${part.id}">${part.label}</option>`).join("");
     helpers.fillSelectOptions(exerciseForm.part_id, parts, "请选择部位", "id", "label");

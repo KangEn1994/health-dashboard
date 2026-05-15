@@ -55,6 +55,7 @@ def test_workout_recommendations_include_frequency_signal() -> None:
         "parts": [
             {"id": "chest", "label": "胸部", "active": True},
             {"id": "back", "label": "背部", "active": True},
+            {"id": "cardio", "label": "有氧", "active": True},
         ],
         "exercises": {},
     }
@@ -68,3 +69,4 @@ def test_workout_recommendations_include_frequency_signal() -> None:
     ]
     result = analytics.workout_recommendations(catalog, plans, sessions)
     assert any("训练次数偏少" in item or "没有覆盖" in item for item in result)
+    assert any("有氧" in item for item in result)

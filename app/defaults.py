@@ -96,6 +96,7 @@ DEFAULT_WORKOUT_CATALOG = {
         {"id": "shoulders", "label": "肩部", "color": "#f97316", "sort_order": 40, "active": True},
         {"id": "arms", "label": "手臂", "color": "#7c3aed", "sort_order": 50, "active": True},
         {"id": "core", "label": "核心", "color": "#0891b2", "sort_order": 60, "active": True},
+        {"id": "cardio", "label": "有氧", "color": "#0f766e", "sort_order": 70, "active": True},
     ],
     "exercises": {
         "chest": [
@@ -230,6 +231,48 @@ DEFAULT_WORKOUT_CATALOG = {
                 "sort_order": 20,
             },
         ],
+        "cardio": [
+            {
+                "id": "elliptical",
+                "name": "椭圆机",
+                "description": "低冲击有氧，适合恢复日或稳态心肺训练。",
+                "detail_placeholder": "如：阻力 8、坡度 6、心率 145",
+                "active": True,
+                "sort_order": 10,
+            },
+            {
+                "id": "treadmill",
+                "name": "跑步机",
+                "description": "可记录配速、坡度或间歇结构。",
+                "detail_placeholder": "如：时速 9、坡度 3、4 x 4 分钟间歇",
+                "active": True,
+                "sort_order": 20,
+            },
+            {
+                "id": "stair_climber",
+                "name": "爬楼机",
+                "description": "适合记录档位、步频和持续时长。",
+                "detail_placeholder": "如：档位 7、步频 80、全程不中断",
+                "active": True,
+                "sort_order": 30,
+            },
+            {
+                "id": "bike",
+                "name": "单车",
+                "description": "适合恢复骑和中低冲击耐力训练。",
+                "detail_placeholder": "如：阻力 5、踏频 90、均速 28",
+                "active": True,
+                "sort_order": 40,
+            },
+            {
+                "id": "rower",
+                "name": "划船机",
+                "description": "可结合配速和阻力记录中高强度有氧。",
+                "detail_placeholder": "如：阻力 6、配速 2:15、2000 米",
+                "active": True,
+                "sort_order": 50,
+            },
+        ],
     },
 }
 
@@ -279,6 +322,22 @@ DEFAULT_WORKOUT_PLANS = [
                 "notes": "最后补二头。",
                 "sort_order": 20,
             },
+        ],
+        "active": True,
+    },
+    {
+        "id": "cardio_recovery",
+        "name": "心肺恢复",
+        "description": "适合恢复日或力量训练后追加的轻中强度有氧。",
+        "groups": [
+            {
+                "id": "cardio_recovery_group_1",
+                "name": "稳态有氧",
+                "part_id": "cardio",
+                "exercise_ids": ["elliptical", "treadmill", "stair_climber"],
+                "notes": "任选一个项目持续 20-40 分钟，记录阻力、速度或坡度。",
+                "sort_order": 10,
+            }
         ],
         "active": True,
     },

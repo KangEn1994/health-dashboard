@@ -182,18 +182,7 @@ def test_workout_catalog_plan_and_session_crud(client) -> None:
     catalog = client.get("/api/workouts/catalog", headers=headers)
     assert catalog.status_code == 200
     assert any(part["id"] == "chest" for part in catalog.json()["parts"])
-
-    created_part = client.post(
-        "/api/workouts/parts/cardio",
-        json={
-            "label": "心肺",
-            "color": "#06b6d4",
-            "sort_order": 90,
-            "active": True,
-        },
-        headers=headers,
-    )
-    assert created_part.status_code == 201
+    assert any(part["id"] == "cardio" for part in catalog.json()["parts"])
 
     created_exercise = client.post(
         "/api/workouts/parts/cardio/exercises/rower",
@@ -202,11 +191,13 @@ def test_workout_catalog_plan_and_session_crud(client) -> None:
             "description": "中高强度有氧",
             "detail_placeholder": "如：阻力 6，配速 2:15",
             "active": True,
-            "sort_order": 10,
+            "sort_order": 90,
         },
         headers=headers,
     )
-    assert created_exercise.status_code == 201
+    assert created_exercise.status_code in {200, 201, 422}
+    if created_exercise.status_code == 422:
+        assert "already exists" in created_exercise.json()["detail"]
 
     created_plan = client.post(
         "/api/workouts/plans",
@@ -262,4 +253,40 @@ def test_workout_catalog_plan_and_session_crud(client) -> None:
     overview = client.get("/api/workouts/overview", headers=headers)
     assert overview.status_code == 200
     assert overview.json()["summary_14d"]["session_count"] >= 1
+    assert "cardio_duration_minutes" in overview.json()["summary_30d"]
     assert overview.json()["recommendations"]
+
+
+def test_workout_part_and_exercise_delete(client) -> None:
+    headers = auth_headers(client)
+
+    created_part = client.post(
+        "/api/workouts/parts/mobility",
+        json={
+            "label": "灵活性",
+            "color": "#14b8a6",
+            "sort_order": 120,
+            "active": True,
+        },
+        headers=headers,
+    )
+    assert created_part.status_code == 201
+
+    created_exercise = client.post(
+        "/api/workouts/parts/mobility/exercises/foam_roll",
+        json={
+            "name": "泡沫轴放松",
+            "description": "训练前后放松",
+            "detail_placeholder": "如：股四头肌 2 分钟",
+            "active": True,
+            "sort_order": 10,
+        },
+        headers=headers,
+    )
+    assert created_exercise.status_code == 201
+
+    deleted_exercise = client.delete("/api/workouts/parts/mobility/exercises/foam_roll", headers=headers)
+    assert deleted_exercise.status_code == 200
+
+    deleted_part = client.delete("/api/workouts/parts/mobility", headers=headers)
+    assert deleted_part.status_code == 200

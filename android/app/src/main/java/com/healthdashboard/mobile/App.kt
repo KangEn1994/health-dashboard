@@ -12,6 +12,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -25,6 +26,7 @@ import com.healthdashboard.mobile.data.HealthRepository
 import com.healthdashboard.mobile.ui.ChartScreen
 import com.healthdashboard.mobile.ui.LoginScreen
 import com.healthdashboard.mobile.ui.RecordsScreen
+import com.healthdashboard.mobile.ui.WorkoutScreen
 import com.healthdashboard.mobile.ui.theme.HealthDashboardTheme
 
 @Composable
@@ -44,7 +46,7 @@ fun HealthDashboardApp() {
                     onLogin = { password, apiBaseUrl -> sessionViewModel.login(password, apiBaseUrl) },
                 )
             } else {
-                val items = listOf(Screen.Records, Screen.Charts)
+                val items = listOf(Screen.Records, Screen.Workout, Screen.Charts)
                 Scaffold(
                     bottomBar = {
                         NavigationBar {
@@ -63,7 +65,8 @@ fun HealthDashboardApp() {
                                         }
                                     },
                                     label = { Text(screen.label) },
-                                    icon = { Text(screen.icon) },
+                                    icon = {},
+                                    alwaysShowLabel = true,
                                 )
                             }
                         }
@@ -86,6 +89,12 @@ fun HealthDashboardApp() {
                                 onLogout = { sessionViewModel.logout() },
                             )
                         }
+                        composable(Screen.Workout.route) {
+                            WorkoutScreen(
+                                repository = healthRepository,
+                                onLogout = { sessionViewModel.logout() },
+                            )
+                        }
                     }
                 }
             }
@@ -93,7 +102,8 @@ fun HealthDashboardApp() {
     }
 }
 
-sealed class Screen(val route: String, val label: String, val icon: String) {
-    data object Records : Screen("records", "记录", "记")
-    data object Charts : Screen("charts", "图表", "图")
+sealed class Screen(val route: String, val label: String) {
+    data object Records : Screen("records", "记录")
+    data object Workout : Screen("workout", "训练")
+    data object Charts : Screen("charts", "图表")
 }

@@ -268,6 +268,24 @@ class DashboardService:
                 return updated
         raise HTTPException(status_code=404, detail="workout part not found")
 
+    def delete_workout_part(self, part_id: str) -> dict[str, Any]:
+        catalog = self.store.get_workout_catalog()
+        plans = self.store.get_workout_plans()
+        sessions = self.store.get_workout_sessions()
+
+        for index, part in enumerate(catalog.get("parts", [])):
+            if part["id"] != part_id:
+                continue
+            if any(group.get("part_id") == part_id for plan in plans for group in plan.get("groups", [])):
+                raise HTTPException(status_code=422, detail="workout part is used by plan groups")
+            if any(exercise.get("part_id") == part_id for session in sessions for exercise in session.get("exercises", [])):
+                raise HTTPException(status_code=422, detail="workout part is used by workout sessions")
+            removed = catalog["parts"].pop(index)
+            catalog.get("exercises", {}).pop(part_id, None)
+            self._save_workout_catalog(catalog)
+            return removed
+        raise HTTPException(status_code=404, detail="workout part not found")
+
     def create_workout_exercise(self, part_id: str, exercise_id: str, payload: WorkoutExerciseCreate) -> dict[str, Any]:
         catalog = self.store.get_workout_catalog()
         if not self._find_part(catalog, part_id):
@@ -289,6 +307,32 @@ class DashboardService:
                 exercises[index] = updated
                 self._save_workout_catalog(catalog)
                 return updated
+        raise HTTPException(status_code=404, detail="workout exercise not found")
+
+    def delete_workout_exercise(self, part_id: str, exercise_id: str) -> dict[str, Any]:
+        catalog = self.store.get_workout_catalog()
+        plans = self.store.get_workout_plans()
+        sessions = self.store.get_workout_sessions()
+        exercises = catalog.setdefault("exercises", {}).setdefault(part_id, [])
+
+        for index, exercise in enumerate(exercises):
+            if exercise["id"] != exercise_id:
+                continue
+            if any(
+                group.get("part_id") == part_id and exercise_id in group.get("exercise_ids", [])
+                for plan in plans
+                for group in plan.get("groups", [])
+            ):
+                raise HTTPException(status_code=422, detail="workout exercise is used by plan groups")
+            if any(
+                logged.get("part_id") == part_id and logged.get("exercise_id") == exercise_id
+                for session in sessions
+                for logged in session.get("exercises", [])
+            ):
+                raise HTTPException(status_code=422, detail="workout exercise is used by workout sessions")
+            removed = exercises.pop(index)
+            self._save_workout_catalog(catalog)
+            return removed
         raise HTTPException(status_code=404, detail="workout exercise not found")
 
     def get_workout_plans(self) -> list[dict[str, Any]]:

@@ -39,4 +39,10 @@ interface ApiService {
 
     @GET("api/dashboard")
     suspend fun getDashboard(@Query("range") range: String): DashboardDto
+
+    @GET("api/workouts/overview")
+    suspend fun getWorkoutOverview(): WorkoutOverviewDto
+
+    @POST("api/workouts/sessions")
+    suspend fun createWorkoutSession(@Body payload: WorkoutSessionRequest): WorkoutSessionDto
 }

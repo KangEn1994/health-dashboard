@@ -249,6 +249,15 @@ def update_workout_part(
     return service.update_workout_part(part_id, payload)
 
 
+@app.delete("/api/workouts/parts/{part_id}")
+def delete_workout_part(
+    part_id: str,
+    _auth: dict = Depends(require_api_auth),
+    service: DashboardService = Depends(get_service),
+) -> dict:
+    return service.delete_workout_part(part_id)
+
+
 @app.post("/api/workouts/parts/{part_id}/exercises/{exercise_id}", status_code=201)
 def create_workout_exercise(
     part_id: str,
@@ -269,6 +278,16 @@ def update_workout_exercise(
     service: DashboardService = Depends(get_service),
 ) -> dict:
     return service.update_workout_exercise(part_id, exercise_id, payload)
+
+
+@app.delete("/api/workouts/parts/{part_id}/exercises/{exercise_id}")
+def delete_workout_exercise(
+    part_id: str,
+    exercise_id: str,
+    _auth: dict = Depends(require_api_auth),
+    service: DashboardService = Depends(get_service),
+) -> dict:
+    return service.delete_workout_exercise(part_id, exercise_id)
 
 
 @app.get("/api/workouts/plans")
