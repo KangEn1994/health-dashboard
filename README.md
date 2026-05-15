@@ -7,6 +7,7 @@ A self-hosted health dashboard for manually maintaining body metrics such as wei
 - FastAPI backend with static HTML frontend
 - JSON file storage with no database
 - Dashboard, records management, and metrics configuration pages
+- Workout catalog, grouped workout plans, and workout session tracking
 - Dynamic metric definitions and derived BMI analysis
 - Docker Compose deployment
 
@@ -40,6 +41,9 @@ Runtime data is stored in `stack/data` for Docker and `app/data` by default when
 - `profile.json`
 - `metrics.json`
 - `entries.json`
+- `workout_catalog.json`
+- `workout_plans.json`
+- `workout_sessions.json`
 
 You can edit these files manually. The app reloads them automatically when they change on disk.
 
@@ -116,6 +120,23 @@ Example login response:
 
 - `GET /api/dashboard?range=month|quarter|year`
 - `GET /api/analytics?range=month|quarter|year&metrics=weight_kg,body_fat_pct`
+
+### Workouts
+
+- `GET /api/workouts/overview`
+- `GET /api/workouts/catalog`
+- `POST /api/workouts/parts/{part_id}`
+- `PUT /api/workouts/parts/{part_id}`
+- `POST /api/workouts/parts/{part_id}/exercises/{exercise_id}`
+- `PUT /api/workouts/parts/{part_id}/exercises/{exercise_id}`
+- `GET /api/workouts/plans`
+- `POST /api/workouts/plans`
+- `PUT /api/workouts/plans/{plan_id}`
+- `DELETE /api/workouts/plans/{plan_id}`
+- `GET /api/workouts/sessions?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD&query=keyword`
+- `POST /api/workouts/sessions`
+- `PUT /api/workouts/sessions/{session_id}`
+- `DELETE /api/workouts/sessions/{session_id}`
 
 ### API Docs
 

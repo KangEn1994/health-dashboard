@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>训练记录 - Health Dashboard</title>
+    <link rel="stylesheet" href="/static/styles.css?v=20260515-workout-ui-3" />
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+    <script defer src="/static/app.js?v=20260515-workout-ui-3"></script>
+  </head>
+  <body data-page="workouts">
+    <div class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark"></div>
+          <div>
+            <h1>训练记录</h1>
+            <p>用于新增训练记录、查看历史记录和获取训练建议。</p>
+          </div>
+        </div>
+        <nav class="nav">
+          <a href="/">看板</a>
+          <a href="/records">记录管理</a>
+          <a href="/workouts">训练记录</a>
+          <a href="/workout-settings">训练配置</a>
+          <a href="/metrics">指标配置</a>
+          <a href="/docs">接口文档</a>
+          <a href="#" data-logout-link>退出</a>
+        </nav>
+      </header>
+
+      <div class="card-grid">
+        <section class="panel span-7">
+          <h3>记录一次训练</h3>
+          <p class="muted">支持一次录入多个动作。可先选计划，再按需要追加动作。</p>
+          <div id="workoutSessionStatus" class="status-pill">等待操作</div>
+          <form id="workoutSessionForm">
+            <div class="form-grid">
+              <label>
+                时间
+                <input type="datetime-local" name="recorded_at" required />
+              </label>
+              <label>
+                分组计划
+                <select name="plan_id"></select>
+              </label>
+              <label>
+                体感强度
+                <input type="number" name="energy_level" min="1" max="10" placeholder="1-10" />
+              </label>
+            </div>
+            <label>
+              标签
+              <input type="text" name="tags" placeholder="推日, 晚训, 状态一般" />
+            </label>
+            <label>
+              备注
+              <textarea name="note" placeholder="例如：今天卧推状态不错，后半程疲劳上来比较快。"></textarea>
+            </label>
+            <div class="actions">
+              <button type="button" class="secondary" id="addWorkoutExerciseRow">新增一个动作</button>
+              <a class="btn secondary" href="/workout-settings">去训练配置看内置动作</a>
+            </div>
+            <div id="workoutExerciseRows" class="metrics-grid"></div>
+            <div class="actions">
+              <button type="submit">保存训练记录</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel span-5">
+          <h3>训练建议</h3>
+          <p class="muted">根据最近训练频率、覆盖部位和训练量给出建议。</p>
+          <div class="summary-grid" id="workoutSummaryGrid"></div>
+          <div class="insight-list" id="workoutRecommendationList" style="margin-top: 16px; min-height: 220px;"></div>
+        </section>
+
+        <section class="panel span-12">
+          <h3>近期训练历史</h3>
+          <p class="muted">按时间倒序查看已记录训练，快速回看动作细节和计划执行情况。</p>
+          <div style="overflow:auto; margin-top: 18px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>时间</th>
+                  <th>计划</th>
+                  <th>动作</th>
+                  <th>备注</th>
+                  <th>标签</th>
+                </tr>
+              </thead>
+              <tbody id="workoutSessionsBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </div>
+  </body>
+</html>

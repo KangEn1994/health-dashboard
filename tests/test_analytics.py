@@ -48,3 +48,23 @@ def test_period_change_bundle() -> None:
     ]
     bundle = analytics.period_change_bundle(series)
     assert any(item["label"] in {"本年", "本季度"} for item in bundle)
+
+
+def test_workout_recommendations_include_frequency_signal() -> None:
+    catalog = {
+        "parts": [
+            {"id": "chest", "label": "胸部", "active": True},
+            {"id": "back", "label": "背部", "active": True},
+        ],
+        "exercises": {},
+    }
+    plans = [{"id": "push_a", "active": True}]
+    sessions = [
+        {
+            "recorded_at": (analytics.now_beijing() - timedelta(days=3)).isoformat(),
+            "plan_id": "push_a",
+            "exercises": [{"part_id": "chest", "exercise_id": "bench_press", "sets": 4}],
+        }
+    ]
+    result = analytics.workout_recommendations(catalog, plans, sessions)
+    assert any("训练次数偏少" in item or "没有覆盖" in item for item in result)

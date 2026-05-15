@@ -12,7 +12,11 @@ def test_store_creates_default_files(tmp_path: Path) -> None:
     assert (tmp_path / "profile.json").exists()
     assert (tmp_path / "metrics.json").exists()
     assert (tmp_path / "entries.json").exists()
+    assert (tmp_path / "workout_catalog.json").exists()
+    assert (tmp_path / "workout_plans.json").exists()
+    assert (tmp_path / "workout_sessions.json").exists()
     assert store.get_metrics()
+    assert store.get_workout_catalog()["parts"]
 
 
 def test_store_reload_after_external_edit(tmp_path: Path) -> None:

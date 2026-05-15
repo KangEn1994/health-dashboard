@@ -87,3 +87,201 @@ DEFAULT_METRICS = [
 ]
 
 DEFAULT_ENTRIES: list[dict] = []
+
+DEFAULT_WORKOUT_CATALOG = {
+    "parts": [
+        {"id": "chest", "label": "胸部", "color": "#ef4444", "sort_order": 10, "active": True},
+        {"id": "back", "label": "背部", "color": "#2563eb", "sort_order": 20, "active": True},
+        {"id": "legs", "label": "腿部", "color": "#16a34a", "sort_order": 30, "active": True},
+        {"id": "shoulders", "label": "肩部", "color": "#f97316", "sort_order": 40, "active": True},
+        {"id": "arms", "label": "手臂", "color": "#7c3aed", "sort_order": 50, "active": True},
+        {"id": "core", "label": "核心", "color": "#0891b2", "sort_order": 60, "active": True},
+    ],
+    "exercises": {
+        "chest": [
+            {
+                "id": "bench_press",
+                "name": "平板卧推",
+                "description": "胸部基础复合动作，适合记录重量和次数。",
+                "detail_placeholder": "如：杠铃、握距略宽于肩、停顿 1 秒",
+                "active": True,
+                "sort_order": 10,
+            },
+            {
+                "id": "incline_db_press",
+                "name": "上斜哑铃卧推",
+                "description": "更强调上胸，可记录凳角与节奏。",
+                "detail_placeholder": "如：30 度上斜、离心 3 秒",
+                "active": True,
+                "sort_order": 20,
+            },
+            {
+                "id": "cable_fly",
+                "name": "绳索夹胸",
+                "description": "孤立刺激动作，适合补量。",
+                "detail_placeholder": "如：高到低轨迹、顶峰收缩 2 秒",
+                "active": True,
+                "sort_order": 30,
+            },
+        ],
+        "back": [
+            {
+                "id": "lat_pulldown",
+                "name": "高位下拉",
+                "description": "常用背阔肌动作，适合记录握距与发力路径。",
+                "detail_placeholder": "如：宽握、拉向锁骨、避免耸肩",
+                "active": True,
+                "sort_order": 10,
+            },
+            {
+                "id": "barbell_row",
+                "name": "杠铃划船",
+                "description": "背部厚度核心动作，建议记录躯干角度。",
+                "detail_placeholder": "如：俯身 45 度、反握、腰背中立",
+                "active": True,
+                "sort_order": 20,
+            },
+            {
+                "id": "seated_row",
+                "name": "坐姿划船",
+                "description": "适合中背和肩胛控制。",
+                "detail_placeholder": "如：窄握、顶峰夹背 1 秒",
+                "active": True,
+                "sort_order": 30,
+            },
+        ],
+        "legs": [
+            {
+                "id": "back_squat",
+                "name": "深蹲",
+                "description": "腿部主力复合动作。",
+                "detail_placeholder": "如：高杠、下蹲到平行以下",
+                "active": True,
+                "sort_order": 10,
+            },
+            {
+                "id": "romanian_deadlift",
+                "name": "罗马尼亚硬拉",
+                "description": "偏臀腿后侧，适合记录下放幅度。",
+                "detail_placeholder": "如：膝微屈、杠铃贴腿",
+                "active": True,
+                "sort_order": 20,
+            },
+            {
+                "id": "leg_press",
+                "name": "腿举",
+                "description": "适合堆训练量。",
+                "detail_placeholder": "如：脚位偏高、全程控制",
+                "active": True,
+                "sort_order": 30,
+            },
+        ],
+        "shoulders": [
+            {
+                "id": "overhead_press",
+                "name": "推举",
+                "description": "肩部复合动作。",
+                "detail_placeholder": "如：站姿、核心收紧",
+                "active": True,
+                "sort_order": 10,
+            },
+            {
+                "id": "lateral_raise",
+                "name": "侧平举",
+                "description": "中束训练常用动作。",
+                "detail_placeholder": "如：哑铃、顶端不过肩",
+                "active": True,
+                "sort_order": 20,
+            },
+        ],
+        "arms": [
+            {
+                "id": "barbell_curl",
+                "name": "杠铃弯举",
+                "description": "肱二头基础动作。",
+                "detail_placeholder": "如：站姿、避免借力",
+                "active": True,
+                "sort_order": 10,
+            },
+            {
+                "id": "triceps_pushdown",
+                "name": "绳索下压",
+                "description": "肱三头常用动作。",
+                "detail_placeholder": "如：绳索手柄、全程伸直",
+                "active": True,
+                "sort_order": 20,
+            },
+        ],
+        "core": [
+            {
+                "id": "plank",
+                "name": "平板支撑",
+                "description": "核心稳定动作。",
+                "detail_placeholder": "如：3 组 60 秒",
+                "active": True,
+                "sort_order": 10,
+            },
+            {
+                "id": "cable_crunch",
+                "name": "绳索卷腹",
+                "description": "可负重腹部训练。",
+                "detail_placeholder": "如：跪姿、顶峰停顿",
+                "active": True,
+                "sort_order": 20,
+            },
+        ],
+    },
+}
+
+DEFAULT_WORKOUT_PLANS = [
+    {
+        "id": "push_a",
+        "name": "推日 A",
+        "description": "胸肩三头的基础推进组。",
+        "groups": [
+            {
+                "id": "push_a_group_1",
+                "name": "胸部主练",
+                "part_id": "chest",
+                "exercise_ids": ["bench_press", "incline_db_press"],
+                "notes": "先大重量复合，再补上胸容量。",
+                "sort_order": 10,
+            },
+            {
+                "id": "push_a_group_2",
+                "name": "肩与三头补量",
+                "part_id": "shoulders",
+                "exercise_ids": ["overhead_press", "triceps_pushdown"],
+                "notes": "肩推后接三头，控制总疲劳。",
+                "sort_order": 20,
+            },
+        ],
+        "active": True,
+    },
+    {
+        "id": "pull_a",
+        "name": "拉日 A",
+        "description": "背部宽度和厚度优先。",
+        "groups": [
+            {
+                "id": "pull_a_group_1",
+                "name": "背阔主练",
+                "part_id": "back",
+                "exercise_ids": ["lat_pulldown", "seated_row"],
+                "notes": "先下拉后划船，兼顾宽度和中背。",
+                "sort_order": 10,
+            },
+            {
+                "id": "pull_a_group_2",
+                "name": "手臂补充",
+                "part_id": "arms",
+                "exercise_ids": ["barbell_curl"],
+                "notes": "最后补二头。",
+                "sort_order": 20,
+            },
+        ],
+        "active": True,
+    },
+]
+
+DEFAULT_WORKOUT_SESSIONS: list[dict] = []

@@ -9,7 +9,14 @@ from pathlib import Path
 from threading import Lock
 from typing import Any
 
-from app.defaults import DEFAULT_ENTRIES, DEFAULT_METRICS, DEFAULT_PROFILE
+from app.defaults import (
+    DEFAULT_ENTRIES,
+    DEFAULT_METRICS,
+    DEFAULT_PROFILE,
+    DEFAULT_WORKOUT_CATALOG,
+    DEFAULT_WORKOUT_PLANS,
+    DEFAULT_WORKOUT_SESSIONS,
+)
 
 
 def default_data_dir() -> Path:
@@ -42,11 +49,26 @@ class JsonStore:
     def entries_path(self) -> Path:
         return self.data_dir / "entries.json"
 
+    @property
+    def workout_catalog_path(self) -> Path:
+        return self.data_dir / "workout_catalog.json"
+
+    @property
+    def workout_plans_path(self) -> Path:
+        return self.data_dir / "workout_plans.json"
+
+    @property
+    def workout_sessions_path(self) -> Path:
+        return self.data_dir / "workout_sessions.json"
+
     def _ensure_defaults(self) -> None:
         defaults = {
             self.profile_path: DEFAULT_PROFILE,
             self.metrics_path: DEFAULT_METRICS,
             self.entries_path: DEFAULT_ENTRIES,
+            self.workout_catalog_path: DEFAULT_WORKOUT_CATALOG,
+            self.workout_plans_path: DEFAULT_WORKOUT_PLANS,
+            self.workout_sessions_path: DEFAULT_WORKOUT_SESSIONS,
         }
         for path, payload in defaults.items():
             if not path.exists():
@@ -97,3 +119,21 @@ class JsonStore:
 
     def save_entries(self, entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
         return self._write_json(self.entries_path, entries)
+
+    def get_workout_catalog(self) -> dict[str, Any]:
+        return self._read_json(self.workout_catalog_path)
+
+    def save_workout_catalog(self, catalog: dict[str, Any]) -> dict[str, Any]:
+        return self._write_json(self.workout_catalog_path, catalog)
+
+    def get_workout_plans(self) -> list[dict[str, Any]]:
+        return self._read_json(self.workout_plans_path)
+
+    def save_workout_plans(self, plans: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return self._write_json(self.workout_plans_path, plans)
+
+    def get_workout_sessions(self) -> list[dict[str, Any]]:
+        return self._read_json(self.workout_sessions_path)
+
+    def save_workout_sessions(self, sessions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return self._write_json(self.workout_sessions_path, sessions)

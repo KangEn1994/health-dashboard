@@ -40,6 +40,22 @@ Android clients should:
 - `GET /api/dashboard?range=month|quarter|year`
 - `GET /api/analytics?range=month|quarter|year&metrics=weight_kg,body_fat_pct`
 
+### Workouts
+- `GET /api/workouts/overview`
+- `GET /api/workouts/catalog`
+- `POST /api/workouts/parts/{part_id}`
+- `PUT /api/workouts/parts/{part_id}`
+- `POST /api/workouts/parts/{part_id}/exercises/{exercise_id}`
+- `PUT /api/workouts/parts/{part_id}/exercises/{exercise_id}`
+- `GET /api/workouts/plans`
+- `POST /api/workouts/plans`
+- `PUT /api/workouts/plans/{plan_id}`
+- `DELETE /api/workouts/plans/{plan_id}`
+- `GET /api/workouts/sessions?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD&query=keyword`
+- `POST /api/workouts/sessions`
+- `PUT /api/workouts/sessions/{session_id}`
+- `DELETE /api/workouts/sessions/{session_id}`
+
 ## Common Response Notes
 
 - All protected endpoints require either the auth cookie or `Authorization: Bearer <token>`.

@@ -13,6 +13,16 @@ from app.api_docs import API_REFERENCE
 from app.auth import AuthManager, build_auth_manager
 from app.repository import JsonStore
 from app.schemas import EntryCreate, EntryUpdate, LoginRequest, MetricCreate, MetricUpdate, ProfileUpdate
+from app.schemas import (
+    WorkoutExerciseCreate,
+    WorkoutExerciseUpdate,
+    WorkoutPartCreate,
+    WorkoutPartUpdate,
+    WorkoutPlanCreate,
+    WorkoutPlanUpdate,
+    WorkoutSessionCreate,
+    WorkoutSessionUpdate,
+)
 from app.services import DashboardService
 
 
@@ -203,6 +213,139 @@ def metric_analytics(
     return service.analytics(range, metric_ids)
 
 
+@app.get("/api/workouts/overview")
+def workout_overview(
+    _auth: dict = Depends(require_api_auth),
+    service: DashboardService = Depends(get_service),
+) -> dict:
+    return service.workout_overview()
+
+
+@app.get("/api/workouts/catalog")
+def get_workout_catalog(
+    _auth: dict = Depends(require_api_auth),
+    service: DashboardService = Depends(get_service),
+) -> dict:
+    return service.get_workout_catalog()
+
+
+@app.post("/api/workouts/parts/{part_id}", status_code=201)
+def create_workout_part(
+    part_id: str,
+    payload: WorkoutPartCreate,
+    _auth: dict = Depends(require_api_auth),
+    service: DashboardService = Depends(get_service),
+) -> dict:
+    return service.create_workout_part(part_id, payload)
+
+
+@app.put("/api/workouts/parts/{part_id}")
+def update_workout_part(
+    part_id: str,
+    payload: WorkoutPartUpdate,
+    _auth: dict = Depends(require_api_auth),
+    service: DashboardService = Depends(get_service),
+) -> dict:
+    return service.update_workout_part(part_id, payload)
+
+
+@app.post("/api/workouts/parts/{part_id}/exercises/{exercise_id}", status_code=201)
+def create_workout_exercise(
+    part_id: str,
+    exercise_id: str,
+    payload: WorkoutExerciseCreate,
+    _auth: dict = Depends(require_api_auth),
+    service: DashboardService = Depends(get_service),
+) -> dict:
+    return service.create_workout_exercise(part_id, exercise_id, payload)
+
+
+@app.put("/api/workouts/parts/{part_id}/exercises/{exercise_id}")
+def update_workout_exercise(
+    part_id: str,
+    exercise_id: str,
+    payload: WorkoutExerciseUpdate,
+    _auth: dict = Depends(require_api_auth),
+    service: DashboardService = Depends(get_service),
+) -> dict:
+    return service.update_workout_exercise(part_id, exercise_id, payload)
+
+
+@app.get("/api/workouts/plans")
+def get_workout_plans(
+    _auth: dict = Depends(require_api_auth),
+    service: DashboardService = Depends(get_service),
+) -> list[dict]:
+    return service.get_workout_plans()
+
+
+@app.post("/api/workouts/plans", status_code=201)
+def create_workout_plan(
+    payload: WorkoutPlanCreate,
+    _auth: dict = Depends(require_api_auth),
+    service: DashboardService = Depends(get_service),
+) -> dict:
+    return service.create_workout_plan(payload)
+
+
+@app.put("/api/workouts/plans/{plan_id}")
+def update_workout_plan(
+    plan_id: str,
+    payload: WorkoutPlanUpdate,
+    _auth: dict = Depends(require_api_auth),
+    service: DashboardService = Depends(get_service),
+) -> dict:
+    return service.update_workout_plan(plan_id, payload)
+
+
+@app.delete("/api/workouts/plans/{plan_id}")
+def delete_workout_plan(
+    plan_id: str,
+    _auth: dict = Depends(require_api_auth),
+    service: DashboardService = Depends(get_service),
+) -> dict:
+    return service.delete_workout_plan(plan_id)
+
+
+@app.get("/api/workouts/sessions")
+def get_workout_sessions(
+    start_date: str | None = Query(default=None),
+    end_date: str | None = Query(default=None),
+    query: str | None = Query(default=None),
+    _auth: dict = Depends(require_api_auth),
+    service: DashboardService = Depends(get_service),
+) -> list[dict]:
+    return service.get_workout_sessions(start_date, end_date, query)
+
+
+@app.post("/api/workouts/sessions", status_code=201)
+def create_workout_session(
+    payload: WorkoutSessionCreate,
+    _auth: dict = Depends(require_api_auth),
+    service: DashboardService = Depends(get_service),
+) -> dict:
+    return service.create_workout_session(payload)
+
+
+@app.put("/api/workouts/sessions/{session_id}")
+def update_workout_session(
+    session_id: str,
+    payload: WorkoutSessionUpdate,
+    _auth: dict = Depends(require_api_auth),
+    service: DashboardService = Depends(get_service),
+) -> dict:
+    return service.update_workout_session(session_id, payload)
+
+
+@app.delete("/api/workouts/sessions/{session_id}")
+def delete_workout_session(
+    session_id: str,
+    _auth: dict = Depends(require_api_auth),
+    service: DashboardService = Depends(get_service),
+) -> dict:
+    return service.delete_workout_session(session_id)
+
+
 @app.get("/api/openapi.json")
 def protected_openapi(
     _auth: dict = Depends(require_api_auth),
@@ -259,3 +402,23 @@ def metrics_page(
     if not ensure_page_auth(request, auth_manager):
         return RedirectResponse(url="/login", status_code=302)
     return FileResponse(STATIC_DIR / "metrics.html")
+
+
+@app.get("/workouts", response_model=None)
+def workouts_page(
+    request: Request,
+    auth_manager: AuthManager = Depends(get_auth_manager),
+) -> Response:
+    if not ensure_page_auth(request, auth_manager):
+        return RedirectResponse(url="/login", status_code=302)
+    return FileResponse(STATIC_DIR / "workouts.html")
+
+
+@app.get("/workout-settings", response_model=None)
+def workout_settings_page(
+    request: Request,
+    auth_manager: AuthManager = Depends(get_auth_manager),
+) -> Response:
+    if not ensure_page_auth(request, auth_manager):
+        return RedirectResponse(url="/login", status_code=302)
+    return FileResponse(STATIC_DIR / "workout-settings.html")

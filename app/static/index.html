@@ -21,6 +21,7 @@
         <nav class="nav">
           <a href="/">看板</a>
           <a href="/records">记录管理</a>
+          <a href="/workouts">训练记录</a>
           <a href="/metrics">指标配置</a>
           <a href="/docs">接口文档</a>
           <a href="#" data-logout-link>退出</a>
@@ -53,6 +54,13 @@
           <h3>自动洞察</h3>
           <p class="muted">基于近期开启数据的简短解读。</p>
           <div class="insight-list" id="insightList"></div>
+        </section>
+
+        <section class="panel span-12">
+          <h3>训练建议</h3>
+          <p class="muted">结合近 14 天和 30 天训练记录，给出覆盖、频率和训练量建议。</p>
+          <div class="summary-grid" id="dashboardWorkoutSummary"></div>
+          <div class="insight-list" id="dashboardWorkoutInsights" style="margin-top: 16px;"></div>
         </section>
 
         <section class="panel span-6">

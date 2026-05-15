@@ -1,0 +1,61 @@
+[
+  {
+    "id": "push_a",
+    "name": "推日 A",
+    "description": "胸肩三头的基础推进组。",
+    "groups": [
+      {
+        "id": "push_a_group_1",
+        "name": "胸部主练",
+        "part_id": "chest",
+        "exercise_ids": [
+          "bench_press",
+          "incline_db_press"
+        ],
+        "notes": "先大重量复合，再补上胸容量。",
+        "sort_order": 10
+      },
+      {
+        "id": "push_a_group_2",
+        "name": "肩与三头补量",
+        "part_id": "shoulders",
+        "exercise_ids": [
+          "overhead_press",
+          "triceps_pushdown"
+        ],
+        "notes": "肩推后接三头，控制总疲劳。",
+        "sort_order": 20
+      }
+    ],
+    "active": true
+  },
+  {
+    "id": "pull_a",
+    "name": "拉日 A",
+    "description": "背部宽度和厚度优先。",
+    "groups": [
+      {
+        "id": "pull_a_group_1",
+        "name": "背阔主练",
+        "part_id": "back",
+        "exercise_ids": [
+          "lat_pulldown",
+          "seated_row"
+        ],
+        "notes": "先下拉后划船，兼顾宽度和中背。",
+        "sort_order": 10
+      },
+      {
+        "id": "pull_a_group_2",
+        "name": "手臂补充",
+        "part_id": "arms",
+        "exercise_ids": [
+          "barbell_curl"
+        ],
+        "notes": "最后补二头。",
+        "sort_order": 20
+      }
+    ],
+    "active": true
+  }
+]

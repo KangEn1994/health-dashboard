@@ -27,6 +27,8 @@ def auth_headers(client) -> dict[str, str]:
 def test_static_pages_load(client) -> None:
     assert client.get("/").status_code == 200
     assert client.get("/records").status_code == 200
+    assert client.get("/workouts").status_code == 200
+    assert client.get("/workout-settings").status_code == 200
     assert client.get("/metrics").status_code == 200
     assert client.get("/login").status_code == 200
 
@@ -172,3 +174,92 @@ def test_dashboard_supports_named_ranges(client) -> None:
     for range_name in ("month", "quarter", "year"):
         response = client.get(f"/api/dashboard?range={range_name}", headers=headers)
         assert response.status_code == 200
+
+
+def test_workout_catalog_plan_and_session_crud(client) -> None:
+    headers = auth_headers(client)
+
+    catalog = client.get("/api/workouts/catalog", headers=headers)
+    assert catalog.status_code == 200
+    assert any(part["id"] == "chest" for part in catalog.json()["parts"])
+
+    created_part = client.post(
+        "/api/workouts/parts/cardio",
+        json={
+            "label": "心肺",
+            "color": "#06b6d4",
+            "sort_order": 90,
+            "active": True,
+        },
+        headers=headers,
+    )
+    assert created_part.status_code == 201
+
+    created_exercise = client.post(
+        "/api/workouts/parts/cardio/exercises/rower",
+        json={
+            "name": "划船机",
+            "description": "中高强度有氧",
+            "detail_placeholder": "如：阻力 6，配速 2:15",
+            "active": True,
+            "sort_order": 10,
+        },
+        headers=headers,
+    )
+    assert created_exercise.status_code == 201
+
+    created_plan = client.post(
+        "/api/workouts/plans",
+        json={
+            "name": "心肺补充",
+            "description": "恢复日有氧",
+            "active": True,
+            "groups": [
+                {
+                    "name": "划船主项",
+                    "part_id": "cardio",
+                    "exercise_ids": ["rower"],
+                    "notes": "20 分钟中高强度",
+                    "sort_order": 10,
+                }
+            ],
+        },
+        headers=headers,
+    )
+    assert created_plan.status_code == 201
+    plan_id = created_plan.json()["id"]
+
+    created_session = client.post(
+        "/api/workouts/sessions",
+        json={
+            "recorded_at": "2026-05-15T20:00:00+08:00",
+            "plan_id": plan_id,
+            "exercises": [
+                {
+                    "part_id": "cardio",
+                    "exercise_id": "rower",
+                    "detail": "阻力 6",
+                    "sets": 1,
+                    "reps": None,
+                    "weight_kg": None,
+                    "duration_minutes": 20,
+                    "rpe": 7,
+                    "note": "",
+                }
+            ],
+            "note": "恢复日有氧",
+            "tags": ["cardio"],
+            "energy_level": 7,
+        },
+        headers=headers,
+    )
+    assert created_session.status_code == 201
+
+    sessions = client.get("/api/workouts/sessions?query=恢复", headers=headers)
+    assert sessions.status_code == 200
+    assert len(sessions.json()) == 1
+
+    overview = client.get("/api/workouts/overview", headers=headers)
+    assert overview.status_code == 200
+    assert overview.json()["summary_14d"]["session_count"] >= 1
+    assert overview.json()["recommendations"]

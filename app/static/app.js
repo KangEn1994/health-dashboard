@@ -345,6 +345,39 @@ function renderDashboard(data) {
   });
 
   document.getElementById("insightList").innerHTML = data.insights.map((text) => `<div class="insight-item">${text}</div>`).join("");
+
+  Promise.resolve(api.get("/api/workouts/overview"))
+    .then((workoutData) => {
+      const summaryNode = document.getElementById("dashboardWorkoutSummary");
+      const insightNode = document.getElementById("dashboardWorkoutInsights");
+      if (!summaryNode || !insightNode) return;
+      summaryNode.innerHTML = `
+        <div class="summary-card">
+          <div class="label">近 14 天训练次数</div>
+          <div class="value">${workoutData.summary_14d.session_count}</div>
+          <div class="delta">总组数 ${workoutData.summary_14d.total_sets}</div>
+        </div>
+        <div class="summary-card">
+          <div class="label">近 30 天训练次数</div>
+          <div class="value">${workoutData.summary_30d.session_count}</div>
+          <div class="delta">计划种类 ${Object.keys(workoutData.summary_30d.plan_counts || {}).length}</div>
+        </div>
+        <div class="summary-card">
+          <div class="label">覆盖部位数</div>
+          <div class="value">${Object.keys(workoutData.summary_14d.part_counts || {}).length}</div>
+          <div class="delta">最近两周统计</div>
+        </div>
+      `;
+      insightNode.innerHTML = (workoutData.recommendations || [])
+        .map((item) => `<div class="insight-item">${item}</div>`)
+        .join("");
+    })
+    .catch(() => {
+      const summaryNode = document.getElementById("dashboardWorkoutSummary");
+      const insightNode = document.getElementById("dashboardWorkoutInsights");
+      if (summaryNode) summaryNode.innerHTML = `<div class="empty">训练模块数据暂时不可用。</div>`;
+      if (insightNode) insightNode.innerHTML = "";
+    });
 }
 
 async function initRecordsPage() {
@@ -644,6 +677,526 @@ async function initMetricsPage() {
   await loadPage();
 }
 
+function createWorkoutHelpers() {
+  let overview = null;
+  let exerciseRowSeed = 0;
+
+  function activeParts() {
+    return (overview?.catalog?.parts || []).filter((part) => part.active);
+  }
+
+  function exercisesForPart(partId) {
+    return overview?.catalog?.exercises?.[partId] || [];
+  }
+
+  function fillSelectOptions(select, items, placeholder, valueKey = "id", labelKey = "label") {
+    if (!select) return;
+    const options = placeholder ? [`<option value="">${placeholder}</option>`] : [];
+    items.forEach((item) => {
+      options.push(`<option value="${item[valueKey]}">${item[labelKey]}</option>`);
+    });
+    select.innerHTML = options.join("");
+  }
+
+  function fillSessionExerciseSelect(select, detailInput, partId) {
+    const exercises = exercisesForPart(partId);
+    select.innerHTML = exercises
+      .filter((exercise) => exercise.active)
+      .map((exercise) => `<option value="${exercise.id}">${exercise.name}</option>`)
+      .join("");
+    const selectedExercise = exercises.find((exercise) => exercise.id === select.value) || exercises[0];
+    if (selectedExercise) {
+      detailInput.placeholder = selectedExercise.detail_placeholder || "握距、节奏、器械细节等";
+      select.value = selectedExercise.id;
+    }
+  }
+
+  function setOverview(data) {
+    overview = data;
+  }
+
+  function nextExerciseRowId() {
+    exerciseRowSeed += 1;
+    return exerciseRowSeed;
+  }
+
+  function resetExerciseRowSeed() {
+    exerciseRowSeed = 0;
+  }
+
+  return {
+    activeParts,
+    exercisesForPart,
+    fillSelectOptions,
+    fillSessionExerciseSelect,
+    setOverview,
+    nextExerciseRowId,
+    resetExerciseRowSeed,
+    getOverview: () => overview,
+  };
+}
+
+function renderWorkoutCatalogSummary(helpers, presetOverviewGrid, catalogPanels, planPanels) {
+  const overview = helpers.getOverview();
+  if (!overview) return;
+  const plans = overview.plans || [];
+  const exerciseCount = Object.values(overview.catalog?.exercises || {}).reduce((sum, items) => sum + items.length, 0);
+
+  if (presetOverviewGrid) {
+    presetOverviewGrid.innerHTML = `
+      <div class="summary-card">
+        <div class="label">内置训练部位</div>
+        <div class="value">${helpers.activeParts().length}</div>
+        <div class="delta">已启用部位</div>
+      </div>
+      <div class="summary-card">
+        <div class="label">内置动作模板</div>
+        <div class="value">${exerciseCount}</div>
+        <div class="delta">可直接选用</div>
+      </div>
+      <div class="summary-card">
+        <div class="label">内置分组计划</div>
+        <div class="value">${plans.filter((plan) => plan.active).length}</div>
+        <div class="delta">支持直接套用</div>
+      </div>
+    `;
+  }
+
+  if (catalogPanels) {
+    catalogPanels.innerHTML = helpers.activeParts()
+      .map((part) => {
+        const exercises = helpers.exercisesForPart(part.id);
+        return `
+          <div class="panel">
+            <div class="actions" style="justify-content: space-between; align-items: center;">
+              <h4>${part.label}</h4>
+              <span class="tag" style="background:${part.color}22;color:${part.color};">${exercises.length} 个动作</span>
+            </div>
+            <div class="list-grid compact-list">
+              ${exercises
+                .map(
+                  (exercise) => `
+                    <div class="compact-item">
+                      <strong>${exercise.name}</strong>
+                      <div class="muted">${exercise.description || "无描述"}</div>
+                      <div class="tiny-note">${exercise.detail_placeholder || "可自由填写动作细节"}</div>
+                    </div>
+                  `
+                )
+                .join("")}
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+  }
+
+  if (planPanels) {
+    planPanels.innerHTML = plans.length
+      ? plans
+          .map(
+            (plan) => `
+              <div class="panel">
+                <div class="actions" style="justify-content: space-between; align-items: center;">
+                  <h4>${plan.name}</h4>
+                  <span class="tag">${plan.groups.length} 个组</span>
+                </div>
+                <div class="muted" style="margin-bottom: 12px;">${plan.description || "无计划说明"}</div>
+                <div class="list-grid compact-list">
+                  ${plan.groups
+                    .map((group) => {
+                      const part = helpers.activeParts().find((item) => item.id === group.part_id);
+                      const exerciseNames = group.exercise_ids
+                        .map((exerciseId) => helpers.exercisesForPart(group.part_id).find((item) => item.id === exerciseId)?.name || exerciseId)
+                        .join("、");
+                      return `
+                        <div class="compact-item">
+                          <strong>${group.name}</strong>
+                          <div class="muted">${part?.label || group.part_id} · ${exerciseNames}</div>
+                          <div class="tiny-note">${group.notes || "无组说明"}</div>
+                        </div>
+                      `;
+                    })
+                    .join("")}
+                </div>
+              </div>
+            `
+          )
+          .join("")
+      : `<div class="empty">还没有训练计划。</div>`;
+  }
+}
+
+function renderWorkoutRecommendations(overview, summaryGrid, recommendationList) {
+  if (!summaryGrid || !recommendationList) return;
+  summaryGrid.innerHTML = `
+    <div class="summary-card">
+      <div class="label">近 14 天训练</div>
+      <div class="value">${overview.summary_14d.session_count}</div>
+      <div class="delta">总组数 ${overview.summary_14d.total_sets}</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">近 30 天训练</div>
+      <div class="value">${overview.summary_30d.session_count}</div>
+      <div class="delta">计划 ${Object.keys(overview.summary_30d.plan_counts || {}).length} 种</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">活跃部位覆盖</div>
+      <div class="value">${Object.keys(overview.summary_14d.part_counts || {}).length}</div>
+      <div class="delta">最近 14 天</div>
+    </div>
+  `;
+  recommendationList.innerHTML = (overview.recommendations || [])
+    .map((text) => `<div class="insight-item">${text}</div>`)
+    .join("");
+}
+
+async function initWorkoutsPage() {
+  const page = document.body.dataset.page;
+  if (page !== "workouts") return;
+  window.scrollTo({ top: 0, behavior: "auto" });
+
+  const sessionForm = document.getElementById("workoutSessionForm");
+  const sessionsBody = document.getElementById("workoutSessionsBody");
+  const summaryGrid = document.getElementById("workoutSummaryGrid");
+  const recommendationList = document.getElementById("workoutRecommendationList");
+  const exerciseRowsContainer = document.getElementById("workoutExerciseRows");
+  const addExerciseRowButton = document.getElementById("addWorkoutExerciseRow");
+  const helpers = createWorkoutHelpers();
+
+  function setWorkoutDefaultRecordedAt() {
+    sessionForm.recorded_at.value = toBeijingDateInputValue();
+  }
+
+  function workoutExerciseRowTemplate(rowId) {
+    return `
+      <div class="workout-exercise-row" data-row-id="${rowId}">
+        <div class="actions" style="justify-content: space-between; align-items: center;">
+          <h4>动作 ${rowId}</h4>
+          <button type="button" class="secondary workout-row-remove">移除</button>
+        </div>
+        <div class="form-grid">
+          <label>
+            训练部位
+            <select name="part_id" required></select>
+          </label>
+          <label>
+            动作
+            <select name="exercise_id" required></select>
+          </label>
+          <label>
+            细节描述
+            <input type="text" name="detail" placeholder="握距、节奏、器械细节等" />
+          </label>
+        </div>
+        <div class="form-grid">
+          <label>
+            组数
+            <input type="number" name="sets" min="1" max="50" value="4" />
+          </label>
+          <label>
+            次数
+            <input type="number" name="reps" min="1" max="500" value="10" />
+          </label>
+          <label>
+            重量（kg）
+            <input type="number" name="weight_kg" min="0" step="0.5" />
+          </label>
+          <label>
+            时长（分钟）
+            <input type="number" name="duration_minutes" min="0" />
+          </label>
+          <label>
+            RPE
+            <input type="number" name="rpe" min="0" max="10" step="0.5" />
+          </label>
+        </div>
+      </div>
+    `;
+  }
+
+  function bindExerciseRow(rowNode, preset = {}) {
+    const partSelect = rowNode.querySelector('select[name="part_id"]');
+    const exerciseSelect = rowNode.querySelector('select[name="exercise_id"]');
+    const detailInput = rowNode.querySelector('input[name="detail"]');
+    const removeButton = rowNode.querySelector(".workout-row-remove");
+
+    helpers.fillSelectOptions(partSelect, helpers.activeParts(), "", "id", "label");
+    partSelect.value = preset.part_id || helpers.activeParts()[0]?.id || "";
+    helpers.fillSessionExerciseSelect(exerciseSelect, detailInput, partSelect.value);
+    if (preset.exercise_id) {
+      exerciseSelect.value = preset.exercise_id;
+      helpers.fillSessionExerciseSelect(exerciseSelect, detailInput, partSelect.value);
+    }
+    if (preset.detail) detailInput.value = preset.detail;
+    if (preset.sets) rowNode.querySelector('input[name="sets"]').value = preset.sets;
+    if (preset.reps) rowNode.querySelector('input[name="reps"]').value = preset.reps;
+    if (preset.weight_kg !== undefined && preset.weight_kg !== null) rowNode.querySelector('input[name="weight_kg"]').value = preset.weight_kg;
+    if (preset.duration_minutes !== undefined && preset.duration_minutes !== null) rowNode.querySelector('input[name="duration_minutes"]').value = preset.duration_minutes;
+    if (preset.rpe !== undefined && preset.rpe !== null) rowNode.querySelector('input[name="rpe"]').value = preset.rpe;
+
+    partSelect.addEventListener("change", () => {
+      helpers.fillSessionExerciseSelect(exerciseSelect, detailInput, partSelect.value);
+    });
+    exerciseSelect.addEventListener("change", () => {
+      helpers.fillSessionExerciseSelect(exerciseSelect, detailInput, partSelect.value);
+    });
+    removeButton.addEventListener("click", () => {
+      rowNode.remove();
+      if (!exerciseRowsContainer.children.length) addExerciseRow();
+    });
+  }
+
+  function addExerciseRow(preset = {}) {
+    const rowId = helpers.nextExerciseRowId();
+    exerciseRowsContainer.insertAdjacentHTML("beforeend", workoutExerciseRowTemplate(rowId));
+    const rowNode = exerciseRowsContainer.lastElementChild;
+    bindExerciseRow(rowNode, preset);
+  }
+
+  function resetExerciseRows(presets = []) {
+    exerciseRowsContainer.innerHTML = "";
+    helpers.resetExerciseRowSeed();
+    if (!presets.length) {
+      addExerciseRow();
+      return;
+    }
+    presets.forEach((preset) => addExerciseRow(preset));
+  }
+
+  function renderOverview() {
+    const overview = helpers.getOverview();
+    if (!overview) return;
+    const plans = overview.plans || [];
+    const planMap = Object.fromEntries(plans.map((plan) => [plan.id, plan]));
+    renderWorkoutRecommendations(overview, summaryGrid, recommendationList);
+    helpers.fillSelectOptions(
+      sessionForm.plan_id,
+      [{ id: "", name: "不使用计划" }, ...plans.filter((plan) => plan.active).map((plan) => ({ id: plan.id, name: plan.name }))],
+      "",
+      "id",
+      "name"
+    );
+    if (!exerciseRowsContainer.children.length) {
+      resetExerciseRows();
+    } else {
+      Array.from(exerciseRowsContainer.children).forEach((rowNode) => {
+        const partSelect = rowNode.querySelector('select[name="part_id"]');
+        const exerciseSelect = rowNode.querySelector('select[name="exercise_id"]');
+        const detailInput = rowNode.querySelector('input[name="detail"]');
+        helpers.fillSelectOptions(partSelect, helpers.activeParts(), "", "id", "label");
+        partSelect.value = helpers.activeParts().find((part) => part.id === partSelect.value)?.id || helpers.activeParts()[0]?.id || "";
+        helpers.fillSessionExerciseSelect(exerciseSelect, detailInput, partSelect.value);
+      });
+    }
+
+    if (!overview.sessions.length) {
+      sessionsBody.innerHTML = `<tr><td colspan="5"><div class="empty">还没有训练记录，先录一组动作。</div></td></tr>`;
+    } else {
+      sessionsBody.innerHTML = overview.sessions
+        .map((session) => {
+          const exercises = (session.exercises || [])
+            .map((exercise) => {
+              const part = helpers.activeParts().find((item) => item.id === exercise.part_id);
+              const exerciseDef = helpers.exercisesForPart(exercise.part_id).find((item) => item.id === exercise.exercise_id);
+              return `${part?.label || exercise.part_id} / ${exerciseDef?.name || exercise.exercise_id} · ${exercise.sets}组${exercise.reps ? ` x ${exercise.reps}次` : ""}${exercise.weight_kg ? ` · ${exercise.weight_kg}kg` : ""}${exercise.detail ? `<br/><span class="muted">${exercise.detail}</span>` : ""}`;
+            })
+            .join("<br/><br/>");
+          const tags = (session.tags || []).map((tag) => `<span class="tag">${tag}</span>`).join("");
+          return `
+            <tr>
+              <td>${formatBeijingDateTime(session.recorded_at)}</td>
+              <td>${planMap[session.plan_id]?.name || "<span class='muted'>未使用计划</span>"}</td>
+              <td>${exercises}</td>
+              <td>${session.note || "<span class='muted'>无备注</span>"}</td>
+              <td>${tags || "<span class='muted'>无标签</span>"}</td>
+            </tr>
+          `;
+        })
+        .join("");
+    }
+  }
+
+  async function loadOverview() {
+    helpers.setOverview(await api.get("/api/workouts/overview"));
+    renderOverview();
+  }
+
+  addExerciseRowButton.addEventListener("click", () => addExerciseRow());
+  sessionForm.plan_id.addEventListener("change", () => {
+    const selectedPlan = (helpers.getOverview()?.plans || []).find((plan) => plan.id === sessionForm.plan_id.value);
+    if (!selectedPlan) return;
+    const presets = selectedPlan.groups.flatMap((group) =>
+      group.exercise_ids.map((exerciseId) => ({
+        part_id: group.part_id,
+        exercise_id: exerciseId,
+      }))
+    );
+    resetExerciseRows(presets);
+  });
+
+  sessionForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      const exercises = Array.from(exerciseRowsContainer.querySelectorAll(".workout-exercise-row")).map((rowNode) => ({
+        part_id: rowNode.querySelector('select[name="part_id"]').value,
+        exercise_id: rowNode.querySelector('select[name="exercise_id"]').value,
+        detail: rowNode.querySelector('input[name="detail"]').value.trim(),
+        sets: Number(rowNode.querySelector('input[name="sets"]').value || 1),
+        reps: rowNode.querySelector('input[name="reps"]').value ? Number(rowNode.querySelector('input[name="reps"]').value) : null,
+        weight_kg: rowNode.querySelector('input[name="weight_kg"]').value ? Number(rowNode.querySelector('input[name="weight_kg"]').value) : null,
+        duration_minutes: rowNode.querySelector('input[name="duration_minutes"]').value ? Number(rowNode.querySelector('input[name="duration_minutes"]').value) : null,
+        rpe: rowNode.querySelector('input[name="rpe"]').value ? Number(rowNode.querySelector('input[name="rpe"]').value) : null,
+        note: "",
+      }));
+      const payload = {
+        recorded_at: `${sessionForm.recorded_at.value}:00+08:00`,
+        plan_id: sessionForm.plan_id.value || null,
+        energy_level: sessionForm.energy_level.value ? Number(sessionForm.energy_level.value) : null,
+        note: sessionForm.note.value.trim(),
+        tags: sessionForm.tags.value
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean),
+        exercises,
+      };
+      await api.send("/api/workouts/sessions", "POST", payload);
+      updateStatus("workoutSessionStatus", "训练记录已保存");
+      sessionForm.reset();
+      setWorkoutDefaultRecordedAt();
+      resetExerciseRows();
+      await loadOverview();
+    } catch (error) {
+      updateStatus("workoutSessionStatus", parseError(error), true);
+    }
+  });
+
+  setWorkoutDefaultRecordedAt();
+  resetExerciseRows();
+  await loadOverview();
+}
+
+async function initWorkoutSettingsPage() {
+  const page = document.body.dataset.page;
+  if (page !== "workout-settings") return;
+  window.scrollTo({ top: 0, behavior: "auto" });
+
+  const partForm = document.getElementById("workoutPartForm");
+  const exerciseForm = document.getElementById("workoutExerciseForm");
+  const planForm = document.getElementById("workoutPlanForm");
+  const catalogPanels = document.getElementById("workoutCatalogPanels");
+  const planPanels = document.getElementById("workoutPlanPanels");
+  const presetOverviewGrid = document.getElementById("presetOverviewGrid");
+  const helpers = createWorkoutHelpers();
+
+  function renderOverview() {
+    renderWorkoutCatalogSummary(helpers, presetOverviewGrid, catalogPanels, planPanels);
+    const parts = helpers.activeParts();
+    const partOptions = parts.map((part) => `<option value="${part.id}">${part.label}</option>`).join("");
+    helpers.fillSelectOptions(exerciseForm.part_id, parts, "请选择部位", "id", "label");
+    helpers.fillSelectOptions(planForm.group_part_id, parts, "请选择部位", "id", "label");
+    if (parts.length) {
+      const exercisePartValue = parts.some((part) => part.id === exerciseForm.part_id.value) ? exerciseForm.part_id.value : parts[0].id;
+      const planPartValue = parts.some((part) => part.id === planForm.group_part_id.value) ? planForm.group_part_id.value : parts[0].id;
+      exerciseForm.part_id.innerHTML = partOptions;
+      planForm.group_part_id.innerHTML = partOptions;
+      exerciseForm.part_id.value = exercisePartValue;
+      planForm.group_part_id.value = planPartValue;
+      fillExerciseMultiSelectForSettings(planPartValue);
+    } else {
+      exerciseForm.part_id.innerHTML = `<option value="">暂无部位，请先新增训练部位</option>`;
+      planForm.group_part_id.innerHTML = `<option value="">暂无部位，请先新增训练部位</option>`;
+      planForm.group_exercise_ids.innerHTML = "";
+    }
+  }
+
+  async function loadOverview() {
+    helpers.setOverview(await api.get("/api/workouts/overview"));
+    renderOverview();
+  }
+
+  function fillExerciseMultiSelectForSettings(partId) {
+    const select = planForm.group_exercise_ids;
+    const exercises = helpers.exercisesForPart(partId);
+    select.innerHTML = exercises
+      .filter((exercise) => exercise.active)
+      .map((exercise) => `<option value="${exercise.id}">${exercise.name}</option>`)
+      .join("");
+    if (!select.innerHTML) {
+      select.innerHTML = `<option value="" disabled>该部位下暂无动作</option>`;
+    }
+  }
+
+  planForm.group_part_id.addEventListener("change", () => fillExerciseMultiSelectForSettings(planForm.group_part_id.value));
+
+  partForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      const partId = partForm.part_id.value.trim();
+      await api.send(`/api/workouts/parts/${partId}`, "POST", {
+        label: partForm.label.value.trim(),
+        color: partForm.color.value,
+        sort_order: Number(partForm.sort_order.value || 100),
+        active: partForm.active.checked,
+      });
+      updateStatus("workoutPartStatus", "训练部位已保存");
+      partForm.reset();
+      partForm.color.value = "#ef4444";
+      await loadOverview();
+    } catch (error) {
+      updateStatus("workoutPartStatus", parseError(error), true);
+    }
+  });
+
+  exerciseForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      const partId = exerciseForm.part_id.value;
+      const exerciseId = exerciseForm.exercise_id.value.trim();
+      await api.send(`/api/workouts/parts/${partId}/exercises/${exerciseId}`, "POST", {
+        name: exerciseForm.name.value.trim(),
+        description: exerciseForm.description.value.trim(),
+        detail_placeholder: exerciseForm.detail_placeholder.value.trim(),
+        active: true,
+        sort_order: 100,
+      });
+      updateStatus("workoutExerciseStatus", "训练动作已保存");
+      exerciseForm.reset();
+      await loadOverview();
+    } catch (error) {
+      updateStatus("workoutExerciseStatus", parseError(error), true);
+    }
+  });
+
+  planForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      const selectedExerciseIds = Array.from(planForm.group_exercise_ids.selectedOptions).map((option) => option.value);
+      await api.send("/api/workouts/plans", "POST", {
+        name: planForm.name.value.trim(),
+        description: planForm.description.value.trim(),
+        active: true,
+        groups: [
+          {
+            name: planForm.group_name.value.trim(),
+            part_id: planForm.group_part_id.value,
+            exercise_ids: selectedExerciseIds,
+            notes: planForm.group_notes.value.trim(),
+            sort_order: 100,
+          },
+        ],
+      });
+      updateStatus("workoutPlanStatus", "训练计划已保存");
+      planForm.reset();
+      await loadOverview();
+    } catch (error) {
+      updateStatus("workoutPlanStatus", parseError(error), true);
+    }
+  });
+
+  await loadOverview();
+}
+
 async function initLoginPage() {
   const page = document.body.dataset.page;
   if (page !== "login") return;
@@ -675,4 +1228,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   await initDashboardPage();
   await initRecordsPage();
   await initMetricsPage();
+  await initWorkoutsPage();
+  await initWorkoutSettingsPage();
 });

@@ -303,3 +303,74 @@ def auto_insights(metric_summaries: dict[str, dict[str, Any]], trend_series: dic
     if not insights:
         insights.append("先录入几条记录，系统会自动生成趋势解读。")
     return insights
+
+
+def workout_volume_summary(sessions: list[dict[str, Any]], days: int = 30) -> dict[str, Any]:
+    cutoff = now_beijing() - timedelta(days=days)
+    filtered = [session for session in sessions if parse_recorded_at_beijing(session["recorded_at"]) >= cutoff]
+    part_counts: dict[str, int] = defaultdict(int)
+    plan_counts: dict[str, int] = defaultdict(int)
+    total_sets = 0
+    session_details = []
+    for session in sorted(filtered, key=lambda item: parse_recorded_at(item["recorded_at"])):
+        part_ids = set()
+        for exercise in session.get("exercises", []):
+            part_id = exercise.get("part_id")
+            if part_id:
+                part_counts[part_id] += 1
+                part_ids.add(part_id)
+            total_sets += int(exercise.get("sets") or 0)
+        if session.get("plan_id"):
+            plan_counts[session["plan_id"]] += 1
+        session_details.append(
+            {
+                "recorded_at": session["recorded_at"],
+                "exercise_count": len(session.get("exercises", [])),
+                "part_ids": sorted(part_ids),
+            }
+        )
+    return {
+        "range_days": days,
+        "session_count": len(filtered),
+        "total_sets": total_sets,
+        "part_counts": dict(sorted(part_counts.items(), key=lambda item: (-item[1], item[0]))),
+        "plan_counts": dict(sorted(plan_counts.items(), key=lambda item: (-item[1], item[0]))),
+        "sessions": session_details,
+    }
+
+
+def workout_recommendations(
+    catalog: dict[str, Any],
+    plans: list[dict[str, Any]],
+    sessions: list[dict[str, Any]],
+) -> list[str]:
+    summary = workout_volume_summary(sessions, 14)
+    recommendations = []
+    part_lookup = {part["id"]: part["label"] for part in catalog.get("parts", [])}
+    active_part_ids = [part["id"] for part in catalog.get("parts", []) if part.get("active")]
+
+    if summary["session_count"] == 0:
+        recommendations.append("最近 14 天还没有训练记录，先从一个内置分组计划开始，建立最基本的节奏。")
+    elif summary["session_count"] < 3:
+        recommendations.append("最近 14 天训练次数偏少，建议至少补到每周 3 次，优先保证固定训练日。")
+
+    low_frequency_parts = [part_id for part_id in active_part_ids if summary["part_counts"].get(part_id, 0) == 0]
+    if low_frequency_parts:
+        labels = "、".join(part_lookup.get(part_id, part_id) for part_id in low_frequency_parts[:3])
+        recommendations.append(f"最近两周没有覆盖 {labels}，建议补一次专项训练，避免长期失衡。")
+
+    if summary["total_sets"] >= 0 and summary["session_count"] > 0:
+        avg_sets = summary["total_sets"] / summary["session_count"]
+        if avg_sets < 12:
+            recommendations.append("单次训练总组数偏少，若恢复正常，可把主练部位提升到 12-18 组。")
+        elif avg_sets > 28:
+            recommendations.append("单次训练量偏高，注意主动作后的疲劳管理，必要时拆分成更多训练日。")
+
+    recent_plan_ids = {session.get("plan_id") for session in sessions[-6:] if session.get("plan_id")}
+    available_active_plans = [plan for plan in plans if plan.get("active")]
+    if available_active_plans and len(recent_plan_ids) <= 1:
+        recommendations.append("最近训练计划变化较少，可以轮换不同分组计划，降低重复刺激带来的平台风险。")
+
+    if not recommendations:
+        recommendations.append("训练覆盖与频率整体平衡，下一步建议围绕主动作逐步提高重量或总次数。")
+    return recommendations
