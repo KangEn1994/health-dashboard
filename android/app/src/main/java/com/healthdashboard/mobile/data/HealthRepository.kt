@@ -5,6 +5,8 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import kotlin.math.pow
 
+private const val BusinessDayStartHour = 6L
+
 class HealthRepository(private val authRepository: AuthRepository) {
     suspend fun getMetrics(): List<MetricDto> = authRepository.service().getMetrics()
 
@@ -46,13 +48,14 @@ class HealthRepository(private val authRepository: AuthRepository) {
 
     suspend fun getWidgetMetricSummary(metricId: String): WidgetMetricSummary? {
         val now = OffsetDateTime.now(ZoneOffset.ofHours(8))
-        val start = now.minusDays(14)
+        val startDate = now.minusHours(BusinessDayStartHour).toLocalDate().minusDays(14)
+        val endDate = now.minusHours(BusinessDayStartHour).toLocalDate()
         val profile = runCatching { getProfile() }.getOrNull()
         val metrics = getWidgetMetricOptions()
         val metric = metrics.firstOrNull { it.id == metricId }
         val label = if (metricId == "bmi") "BMI" else metric?.label ?: metricId
         val unit = if (metricId == "bmi") "" else metric?.unit ?: ""
-        val entries = getEntries(startDate = start.toLocalDate().toString(), endDate = now.toLocalDate().toString())
+        val entries = getEntries(startDate = startDate.toString(), endDate = endDate.toString())
         val points = entries
             .mapNotNull { entry ->
                 val value = when (metricId) {
@@ -90,12 +93,13 @@ class HealthRepository(private val authRepository: AuthRepository) {
                 val recordedAt = runCatching { OffsetDateTime.parse(session.recorded_at, formatter) }.getOrNull() ?: return@mapNotNull null
                 val bjTime = recordedAt.withOffsetSameInstant(ZoneOffset.ofHours(8))
                 if (bjTime.isBefore(start)) return@mapNotNull null
+                val businessDate = bjTime.minusHours(BusinessDayStartHour).toLocalDate()
                 val totalDuration = session.exercises.sumOf { it.duration_minutes ?: 0 }
                 val totalSets = session.exercises.sumOf { exercise ->
                     if (exercise.part_id == "cardio") 0 else exercise.sets
                 }
                 WorkoutCalendarPointDto(
-                    date = bjTime.toLocalDate().toString(),
+                    date = businessDate.toString(),
                     session_count = 1,
                     total_sets = totalSets,
                     total_duration_minutes = totalDuration,

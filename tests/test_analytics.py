@@ -40,6 +40,11 @@ def test_beijing_time_conversion() -> None:
     assert converted.isoformat().startswith("2026-05-14T08:30:00+08:00")
 
 
+def test_business_date_starts_at_six_am() -> None:
+    assert analytics.business_date("2026-05-03T02:00:00+08:00").isoformat() == "2026-05-02"
+    assert analytics.business_date("2026-05-03T06:00:00+08:00").isoformat() == "2026-05-03"
+
+
 def test_period_change_bundle() -> None:
     now = analytics.now_beijing()
     series = [
@@ -78,7 +83,7 @@ def test_workout_duration_series_fills_missing_days(monkeypatch) -> None:
     monkeypatch.setattr(analytics, "now_beijing", lambda: fixed_now)
     sessions = [
         {
-            "recorded_at": "2026-05-14T20:00:00+08:00",
+            "recorded_at": "2026-05-15T02:00:00+08:00",
             "exercises": [{"duration_minutes": 35}],
         },
         {
@@ -90,7 +95,7 @@ def test_workout_duration_series_fills_missing_days(monkeypatch) -> None:
     series = analytics.workout_duration_series(sessions, days=2)
 
     assert series == [
-        {"recorded_at": "2026-05-14T00:00:00+08:00", "value": 35.0},
-        {"recorded_at": "2026-05-15T00:00:00+08:00", "value": 0.0},
-        {"recorded_at": "2026-05-16T00:00:00+08:00", "value": 20.0},
+        {"recorded_at": "2026-05-14T06:00:00+08:00", "value": 35.0},
+        {"recorded_at": "2026-05-15T06:00:00+08:00", "value": 0.0},
+        {"recorded_at": "2026-05-16T06:00:00+08:00", "value": 20.0},
     ]

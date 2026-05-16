@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from statistics import mean
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -19,6 +19,7 @@ RANGE_MAP = {
 }
 
 BEIJING_TZ = ZoneInfo("Asia/Shanghai")
+BUSINESS_DAY_START_HOUR = 6
 
 
 def parse_range(range_name: str) -> int | None:
@@ -43,6 +44,23 @@ def parse_recorded_at_beijing(value: str) -> datetime:
     return to_beijing(parse_recorded_at(value))
 
 
+def business_date_from_dt(dt: datetime) -> date:
+    beijing_time = to_beijing(dt)
+    return (beijing_time - timedelta(hours=BUSINESS_DAY_START_HOUR)).date()
+
+
+def business_date(value: str) -> date:
+    return business_date_from_dt(parse_recorded_at(value))
+
+
+def business_day_start(day: date) -> datetime:
+    return datetime.combine(day, time(hour=BUSINESS_DAY_START_HOUR), tzinfo=BEIJING_TZ)
+
+
+def today_business_date() -> date:
+    return business_date_from_dt(now_beijing())
+
+
 def sort_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(entries, key=lambda item: parse_recorded_at(item["recorded_at"]))
 
@@ -50,8 +68,8 @@ def sort_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def filter_entries_by_days(entries: list[dict[str, Any]], days: int | None) -> list[dict[str, Any]]:
     if days is None:
         return entries
-    cutoff = now_beijing() - timedelta(days=days)
-    return [entry for entry in entries if parse_recorded_at_beijing(entry["recorded_at"]) >= cutoff]
+    cutoff = today_business_date() - timedelta(days=days)
+    return [entry for entry in entries if business_date(entry["recorded_at"]) >= cutoff]
 
 
 def bmi_for_entry(entry: dict[str, Any], height_cm: float) -> float | None:
@@ -82,16 +100,15 @@ def series_for_metric(
 
 def workout_duration_series(sessions: list[dict[str, Any]], days: int | None = None) -> list[dict[str, Any]]:
     relevant_sessions = sessions
-    today = now_beijing().date()
+    today = today_business_date()
     start_date = None
     if days is not None:
-        cutoff = now_beijing() - timedelta(days=days)
-        start_date = cutoff.date()
-        relevant_sessions = [session for session in sessions if parse_recorded_at_beijing(session["recorded_at"]) >= cutoff]
+        start_date = today - timedelta(days=days)
+        relevant_sessions = [session for session in sessions if business_date(session["recorded_at"]) >= start_date]
 
     buckets: dict[str, int] = defaultdict(int)
     for session in relevant_sessions:
-        day_key = parse_recorded_at_beijing(session["recorded_at"]).date().isoformat()
+        day_key = business_date(session["recorded_at"]).isoformat()
         buckets[day_key] += sum(int(exercise.get("duration_minutes") or 0) for exercise in session.get("exercises", []))
 
     if start_date is None and buckets:
@@ -101,14 +118,14 @@ def workout_duration_series(sessions: list[dict[str, Any]], days: int | None = N
         total_days = (today - start_date).days
         return [
             {
-                "recorded_at": f"{(start_date + timedelta(days=offset)).isoformat()}T00:00:00+08:00",
+                "recorded_at": business_day_start(start_date + timedelta(days=offset)).isoformat(),
                 "value": float(buckets.get((start_date + timedelta(days=offset)).isoformat(), 0)),
             }
             for offset in range(total_days + 1)
         ]
 
     return [
-        {"recorded_at": f"{day}T00:00:00+08:00", "value": float(total_minutes)}
+        {"recorded_at": business_day_start(datetime.fromisoformat(day).date()).isoformat(), "value": float(total_minutes)}
         for day, total_minutes in sorted(buckets.items())
     ]
 
@@ -137,8 +154,9 @@ def summary_for_series(series: list[dict[str, Any]]) -> dict[str, Any]:
     delta = round(latest - series[-2]["value"], 3) if len(series) >= 2 else None
 
     now = now_beijing()
-    last_7 = [item["value"] for item in series if parse_recorded_at_beijing(item["recorded_at"]) >= now - timedelta(days=7)]
-    last_30 = [item["value"] for item in series if parse_recorded_at_beijing(item["recorded_at"]) >= now - timedelta(days=30)]
+    business_today = business_date_from_dt(now)
+    last_7 = [item["value"] for item in series if business_date(item["recorded_at"]) >= business_today - timedelta(days=7)]
+    last_30 = [item["value"] for item in series if business_date(item["recorded_at"]) >= business_today - timedelta(days=30)]
     return {
         "latest": latest,
         "delta": delta,
@@ -183,7 +201,7 @@ def correlation_pairs(
             if metric_id == "bmi":
                 other = bmi_for_entry(entry, height_cm)
             elif metric_id == "workout_duration_min":
-                day_key = parse_recorded_at_beijing(entry["recorded_at"]).date().isoformat()
+                day_key = business_date(entry["recorded_at"]).isoformat()
                 other = (workout_duration_by_day or {}).get(day_key)
             else:
                 other = entry.get("values", {}).get(metric_id)
@@ -204,7 +222,7 @@ def correlation_pairs(
 def continuity_stats(entries: list[dict[str, Any]]) -> dict[str, Any]:
     if not entries:
         return {"record_days": 0, "longest_streak": 0, "days_since_last_entry": None}
-    dates = sorted({parse_recorded_at_beijing(entry["recorded_at"]).date() for entry in entries})
+    dates = sorted({business_date(entry["recorded_at"]) for entry in entries})
     longest = current = 1
     for previous, current_date in zip(dates, dates[1:]):
         if current_date - previous == timedelta(days=1):
@@ -213,7 +231,7 @@ def continuity_stats(entries: list[dict[str, Any]]) -> dict[str, Any]:
             longest = max(longest, current)
             current = 1
     longest = max(longest, current)
-    days_since_last = (now_beijing().date() - dates[-1]).days
+    days_since_last = (today_business_date() - dates[-1]).days
     return {
         "record_days": len(dates),
         "longest_streak": longest,
@@ -224,7 +242,7 @@ def continuity_stats(entries: list[dict[str, Any]]) -> dict[str, Any]:
 def calendar_heatmap(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
     counts: dict[str, int] = defaultdict(int)
     for entry in entries:
-        key = parse_recorded_at_beijing(entry["recorded_at"]).date().isoformat()
+        key = business_date(entry["recorded_at"]).isoformat()
         counts[key] += 1
     return [{"date": date, "count": count} for date, count in sorted(counts.items())]
 
@@ -232,14 +250,13 @@ def calendar_heatmap(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def period_average_comparison(series: list[dict[str, Any]], days: int) -> dict[str, Any]:
     if days <= 0:
         return {"current": None, "previous": None, "delta": None}
-    now = now_beijing()
-    current_start = now - timedelta(days=days)
+    current_start = today_business_date() - timedelta(days=days)
     previous_start = current_start - timedelta(days=days)
-    current_values = [item["value"] for item in series if parse_recorded_at_beijing(item["recorded_at"]) >= current_start]
+    current_values = [item["value"] for item in series if business_date(item["recorded_at"]) >= current_start]
     previous_values = [
         item["value"]
         for item in series
-        if previous_start <= parse_recorded_at_beijing(item["recorded_at"]) < current_start
+        if previous_start <= business_date(item["recorded_at"]) < current_start
     ]
     current_avg = round(mean(current_values), 3) if current_values else None
     previous_avg = round(mean(previous_values), 3) if previous_values else None
@@ -252,8 +269,7 @@ def weekly_changes(series: list[dict[str, Any]]) -> list[dict[str, Any]]:
         return []
     week_buckets: dict[str, list[float]] = defaultdict(list)
     for point in series:
-        dt = parse_recorded_at_beijing(point["recorded_at"])
-        iso_year, iso_week, _ = dt.isocalendar()
+        iso_year, iso_week, _ = business_date(point["recorded_at"]).isocalendar()
         week_buckets[f"{iso_year}-W{iso_week:02d}"].append(point["value"])
     changes = []
     for week, values in sorted(week_buckets.items()):
@@ -264,13 +280,13 @@ def weekly_changes(series: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def plateau_detection(series: list[dict[str, Any]], days: int = 14, threshold: float = 0.05) -> dict[str, Any]:
     if len(series) < 2:
         return {"is_plateau": False, "slope": None, "window_days": days}
-    cutoff = now_beijing() - timedelta(days=days)
-    window = [point for point in series if parse_recorded_at_beijing(point["recorded_at"]) >= cutoff]
+    cutoff = today_business_date() - timedelta(days=days)
+    window = [point for point in series if business_date(point["recorded_at"]) >= cutoff]
     if len(window) < 2:
         return {"is_plateau": False, "slope": None, "window_days": days}
     first = window[0]
     last = window[-1]
-    days_span = max((parse_recorded_at_beijing(last["recorded_at"]) - parse_recorded_at_beijing(first["recorded_at"])).days, 1)
+    days_span = max((business_date(last["recorded_at"]) - business_date(first["recorded_at"])).days, 1)
     slope = (last["value"] - first["value"]) / days_span
     return {"is_plateau": abs(slope) < threshold, "slope": round(slope, 4), "window_days": days}
 
@@ -279,23 +295,24 @@ def current_period_change(series: list[dict[str, Any]], period: str) -> dict[str
     if len(series) < 2:
         return None
     now = now_beijing()
+    business_today = business_date_from_dt(now)
     if period == "week":
-        start = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+        start = business_today - timedelta(days=business_today.weekday())
         label = "本周"
     elif period == "month":
-        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        start = business_today.replace(day=1)
         label = "本月"
     elif period == "quarter":
-        quarter_month = ((now.month - 1) // 3) * 3 + 1
-        start = now.replace(month=quarter_month, day=1, hour=0, minute=0, second=0, microsecond=0)
+        quarter_month = ((business_today.month - 1) // 3) * 3 + 1
+        start = business_today.replace(month=quarter_month, day=1)
         label = "本季度"
     elif period == "year":
-        start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        start = business_today.replace(month=1, day=1)
         label = "本年"
     else:
         raise ValueError("Unsupported period")
 
-    window = [point for point in series if parse_recorded_at_beijing(point["recorded_at"]) >= start]
+    window = [point for point in series if business_date(point["recorded_at"]) >= start]
     if len(window) < 2:
         return None
     change = round(window[-1]["value"] - window[0]["value"], 3)
@@ -346,8 +363,8 @@ def auto_insights(metric_summaries: dict[str, dict[str, Any]], trend_series: dic
 
 
 def workout_volume_summary(sessions: list[dict[str, Any]], days: int = 30) -> dict[str, Any]:
-    cutoff = now_beijing() - timedelta(days=days)
-    filtered = [session for session in sessions if parse_recorded_at_beijing(session["recorded_at"]) >= cutoff]
+    cutoff = today_business_date() - timedelta(days=days)
+    filtered = [session for session in sessions if business_date(session["recorded_at"]) >= cutoff]
     part_counts: dict[str, int] = defaultdict(int)
     plan_counts: dict[str, int] = defaultdict(int)
     total_sets = 0

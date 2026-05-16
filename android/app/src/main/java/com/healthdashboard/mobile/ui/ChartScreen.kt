@@ -88,6 +88,8 @@ private data class MobileTrendSpec(
     val icon: ImageVector,
 )
 
+private const val BusinessDayStartHour = 6
+
 private data class DataCalendarDay(
     val date: LocalDate,
     val entries: List<EntryDto>,
@@ -558,7 +560,7 @@ private fun DatePill(label: String, onClick: () -> Unit, modifier: Modifier = Mo
 private fun buildFilteredTrendMap(trends: Map<String, List<TrendPointDto>>, startDate: LocalDate, endDate: LocalDate): Map<String, List<TrendPointDto>> {
     return trends.mapValues { (_, points) ->
         points.filter { point ->
-            val date = OffsetDateTime.parse(point.recorded_at).withOffsetSameInstant(BeijingOffset).toLocalDate()
+            val date = businessDate(point.recorded_at)
             !date.isBefore(startDate) && !date.isAfter(endDate)
         }
     }
@@ -572,7 +574,7 @@ private fun buildCardioDurationSeries(
     val durationByDate = sessions
         .mapNotNull { session ->
             val date = runCatching {
-                OffsetDateTime.parse(session.recorded_at).withOffsetSameInstant(BeijingOffset).toLocalDate()
+                businessDate(session.recorded_at)
             }.getOrNull() ?: return@mapNotNull null
             if (date.isBefore(startDate) || date.isAfter(endDate)) return@mapNotNull null
             val duration = session.exercises
@@ -587,7 +589,7 @@ private fun buildCardioDurationSeries(
     return (0..totalDays).map { offset ->
         val date = startDate.plusDays(offset)
             TrendPointDto(
-                recorded_at = "${date}T00:00:00+08:00",
+                recorded_at = "${date}T06:00:00+08:00",
                 value = (durationByDate[date] ?: 0).toDouble(),
             )
     }
@@ -609,7 +611,7 @@ private fun numericValue(value: Any?): Double? {
 
 private fun buildMonthCalendar(entries: List<EntryDto>, workouts: List<WorkoutCalendarPointDto>, year: Int, month: Int): List<DataCalendarDay> {
     val targetMonth = YearMonth.of(year, month)
-    val entryMap = entries.groupBy { OffsetDateTime.parse(it.recorded_at).withOffsetSameInstant(BeijingOffset).toLocalDate() }
+    val entryMap = entries.groupBy { businessDate(it.recorded_at) }
     val workoutMap = workouts.associateBy { LocalDate.parse(it.date) }
     val firstDay = targetMonth.atDay(1)
     val start = firstDay.minusDays(((firstDay.dayOfWeek.value + 6) % 7).toLong())
@@ -621,10 +623,17 @@ private fun buildMonthCalendar(entries: List<EntryDto>, workouts: List<WorkoutCa
 
 private fun availableYears(entries: List<EntryDto>, workouts: List<WorkoutCalendarPointDto>): List<Int> {
     val years = buildSet {
-        entries.forEach { add(OffsetDateTime.parse(it.recorded_at).withOffsetSameInstant(BeijingOffset).year) }
+        entries.forEach { add(businessDate(it.recorded_at).year) }
         workouts.forEach { add(LocalDate.parse(it.date).year) }
     }.sortedDescending()
     return years.ifEmpty { listOf(LocalDate.now(BeijingOffset).year) }
+}
+
+private fun businessDate(recordedAt: String): LocalDate {
+    return OffsetDateTime.parse(recordedAt)
+        .withOffsetSameInstant(BeijingOffset)
+        .minusHours(BusinessDayStartHour.toLong())
+        .toLocalDate()
 }
 
 private fun workoutTypeLabel(workout: WorkoutCalendarPointDto): String {

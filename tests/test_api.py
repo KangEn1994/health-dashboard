@@ -151,20 +151,20 @@ def test_invalid_metric_in_entry_rejected(client) -> None:
     assert response.status_code == 422
 
 
-def test_entry_filter_uses_beijing_date(client) -> None:
+def test_entry_filter_uses_business_date(client) -> None:
     headers = auth_headers(client)
     response = client.post(
         "/api/entries",
         json={
-            "recorded_at": "2026-05-14T00:30:00+08:00",
+            "recorded_at": "2026-05-14T02:30:00+08:00",
             "values": {"weight_kg": 70.2},
-            "note": "bj date",
+            "note": "business date",
             "tags": [],
         },
         headers=headers,
     )
     assert response.status_code == 201
-    entries = client.get("/api/entries?start_date=2026-05-14&end_date=2026-05-14", headers=headers)
+    entries = client.get("/api/entries?start_date=2026-05-13&end_date=2026-05-13", headers=headers)
     assert entries.status_code == 200
     assert len(entries.json()) == 1
 
@@ -218,6 +218,39 @@ def test_dashboard_includes_workout_duration_series_and_correlation(client) -> N
     assert "workout_duration_min" in payload["trends"]
     assert payload["trends"]["workout_duration_min"]
     assert any(item["metric_id"] == "workout_duration_min" for item in payload["correlations"])
+
+
+def test_workout_session_filter_uses_business_date(client) -> None:
+    headers = auth_headers(client)
+    response = client.post(
+        "/api/workouts/sessions",
+        json={
+            "recorded_at": "2026-05-03T02:00:00+08:00",
+            "plan_id": None,
+            "exercises": [
+                {
+                    "part_id": "cardio",
+                    "exercise_id": "elliptical",
+                    "detail": "",
+                    "sets": 1,
+                    "reps": None,
+                    "weight_kg": None,
+                    "duration_minutes": 30,
+                    "rpe": None,
+                    "note": "",
+                }
+            ],
+            "note": "",
+            "tags": [],
+            "energy_level": 7,
+        },
+        headers=headers,
+    )
+    assert response.status_code == 201
+
+    sessions = client.get("/api/workouts/sessions?start_date=2026-05-02&end_date=2026-05-02", headers=headers)
+    assert sessions.status_code == 200
+    assert len(sessions.json()) == 1
 
 
 def test_workout_catalog_plan_and_session_crud(client) -> None:

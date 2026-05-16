@@ -72,7 +72,7 @@ class DashboardService:
         entries = self.store.get_entries()
         filtered = []
         for entry in entries:
-            recorded_at = analytics.parse_recorded_at_beijing(entry["recorded_at"]).date().isoformat()
+            recorded_at = analytics.business_date(entry["recorded_at"]).isoformat()
             if start_date and recorded_at < start_date:
                 continue
             if end_date and recorded_at > end_date:
@@ -195,7 +195,7 @@ class DashboardService:
             ["weight_kg", "body_fat_pct", "bmi", "workout_duration_min"],
             profile["height_cm"],
             {
-                analytics.parse_recorded_at_beijing(point["recorded_at"]).date().isoformat(): point["value"]
+                analytics.business_date(point["recorded_at"]).isoformat(): point["value"]
                 for point in workout_duration_series
             },
         )
@@ -456,7 +456,7 @@ class DashboardService:
         sessions = self.store.get_workout_sessions()
         filtered = []
         for session in sessions:
-            recorded_at = analytics.parse_recorded_at_beijing(session["recorded_at"]).date().isoformat()
+            recorded_at = analytics.business_date(session["recorded_at"]).isoformat()
             if start_date and recorded_at < start_date:
                 continue
             if end_date and recorded_at > end_date:
