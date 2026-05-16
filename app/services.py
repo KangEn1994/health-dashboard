@@ -256,8 +256,9 @@ class DashboardService:
     def _find_part(self, catalog: dict[str, Any], part_id: str) -> dict[str, Any] | None:
         return next((part for part in catalog.get("parts", []) if part["id"] == part_id), None)
 
-    def create_workout_part(self, part_id: str, payload: WorkoutPartCreate) -> dict[str, Any]:
+    def create_workout_part(self, payload: WorkoutPartCreate, part_id: str | None = None) -> dict[str, Any]:
         catalog = self.store.get_workout_catalog()
+        part_id = part_id or uuid4().hex
         if self._find_part(catalog, part_id):
             raise HTTPException(status_code=422, detail="workout_part_id already exists")
         part = {"id": part_id, **payload.model_dump()}
@@ -294,11 +295,17 @@ class DashboardService:
             return removed
         raise HTTPException(status_code=404, detail="workout part not found")
 
-    def create_workout_exercise(self, part_id: str, exercise_id: str, payload: WorkoutExerciseCreate) -> dict[str, Any]:
+    def create_workout_exercise(
+        self,
+        part_id: str,
+        payload: WorkoutExerciseCreate,
+        exercise_id: str | None = None,
+    ) -> dict[str, Any]:
         catalog = self.store.get_workout_catalog()
         if not self._find_part(catalog, part_id):
             raise HTTPException(status_code=422, detail="workout part not found")
         exercises = catalog.setdefault("exercises", {}).setdefault(part_id, [])
+        exercise_id = exercise_id or uuid4().hex
         if any(item["id"] == exercise_id for item in exercises):
             raise HTTPException(status_code=422, detail="exercise_id already exists")
         exercise = {"id": exercise_id, **payload.model_dump()}

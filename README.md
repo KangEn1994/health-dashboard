@@ -125,10 +125,14 @@ Example login response:
 
 - `GET /api/workouts/overview`
 - `GET /api/workouts/catalog`
+- `POST /api/workouts/parts`
 - `POST /api/workouts/parts/{part_id}`
 - `PUT /api/workouts/parts/{part_id}`
+- `DELETE /api/workouts/parts/{part_id}`
+- `POST /api/workouts/parts/{part_id}/exercises`
 - `POST /api/workouts/parts/{part_id}/exercises/{exercise_id}`
 - `PUT /api/workouts/parts/{part_id}/exercises/{exercise_id}`
+- `DELETE /api/workouts/parts/{part_id}/exercises/{exercise_id}`
 - `GET /api/workouts/plans`
 - `POST /api/workouts/plans`
 - `PUT /api/workouts/plans/{plan_id}`

@@ -1336,8 +1336,7 @@ async function initWorkoutSettingsPage() {
   partForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     try {
-      const partId = partForm.part_id.value.trim();
-      await api.send(`/api/workouts/parts/${partId}`, "POST", {
+      await api.send("/api/workouts/parts", "POST", {
         label: partForm.label.value.trim(),
         color: partForm.color.value,
         sort_order: Number(partForm.sort_order.value || 100),
@@ -1356,8 +1355,7 @@ async function initWorkoutSettingsPage() {
     event.preventDefault();
     try {
       const partId = exerciseForm.part_id.value;
-      const exerciseId = exerciseForm.exercise_id.value.trim();
-      await api.send(`/api/workouts/parts/${partId}/exercises/${exerciseId}`, "POST", {
+      await api.send(`/api/workouts/parts/${partId}/exercises`, "POST", {
         name: exerciseForm.name.value.trim(),
         description: exerciseForm.description.value.trim(),
         detail_placeholder: exerciseForm.detail_placeholder.value.trim(),

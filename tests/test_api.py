@@ -337,7 +337,7 @@ def test_workout_part_and_exercise_delete(client) -> None:
     headers = auth_headers(client)
 
     created_part = client.post(
-        "/api/workouts/parts/mobility",
+        "/api/workouts/parts",
         json={
             "label": "灵活性",
             "color": "#14b8a6",
@@ -347,9 +347,11 @@ def test_workout_part_and_exercise_delete(client) -> None:
         headers=headers,
     )
     assert created_part.status_code == 201
+    part_id = created_part.json()["id"]
+    assert len(part_id) == 32
 
     created_exercise = client.post(
-        "/api/workouts/parts/mobility/exercises/foam_roll",
+        f"/api/workouts/parts/{part_id}/exercises",
         json={
             "name": "泡沫轴放松",
             "description": "训练前后放松",
@@ -360,9 +362,35 @@ def test_workout_part_and_exercise_delete(client) -> None:
         headers=headers,
     )
     assert created_exercise.status_code == 201
+    exercise_id = created_exercise.json()["id"]
+    assert len(exercise_id) == 32
 
-    deleted_exercise = client.delete("/api/workouts/parts/mobility/exercises/foam_roll", headers=headers)
+    created_plan = client.post(
+        "/api/workouts/plans",
+        json={
+            "name": "灵活性恢复",
+            "description": "",
+            "active": True,
+            "groups": [
+                {
+                    "name": "放松",
+                    "part_id": part_id,
+                    "exercise_ids": [exercise_id],
+                    "notes": "",
+                    "sort_order": 10,
+                }
+            ],
+        },
+        headers=headers,
+    )
+    assert created_plan.status_code == 201
+    plan_id = created_plan.json()["id"]
+
+    deleted_plan = client.delete(f"/api/workouts/plans/{plan_id}", headers=headers)
+    assert deleted_plan.status_code == 200
+
+    deleted_exercise = client.delete(f"/api/workouts/parts/{part_id}/exercises/{exercise_id}", headers=headers)
     assert deleted_exercise.status_code == 200
 
-    deleted_part = client.delete("/api/workouts/parts/mobility", headers=headers)
+    deleted_part = client.delete(f"/api/workouts/parts/{part_id}", headers=headers)
     assert deleted_part.status_code == 200

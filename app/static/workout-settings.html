@@ -47,13 +47,9 @@
 
         <section class="panel span-4" id="workoutConfigSection">
           <h3>新增训练部位</h3>
-          <p class="muted">当内置部位不够时再扩展，默认情况下通常不需要频繁新增。</p>
+          <p class="muted">当内置部位不够时再扩展，部位 ID 会自动生成。</p>
           <div id="workoutPartStatus" class="status-pill">等待操作</div>
           <form id="workoutPartForm">
-            <label>
-              部位 ID
-              <input type="text" name="part_id" placeholder="chest" required />
-            </label>
             <label>
               名称
               <input type="text" name="label" placeholder="胸部" required />
@@ -73,16 +69,12 @@
 
         <section class="panel span-4">
           <h3>新增动作</h3>
-          <p class="muted">每个动作都可以带一个可自由编辑的动作细节提示。</p>
+          <p class="muted">每个动作都可以带一个可自由编辑的动作细节提示，动作 ID 会自动生成。</p>
           <div id="workoutExerciseStatus" class="status-pill">等待操作</div>
           <form id="workoutExerciseForm">
             <label>
               所属部位
               <select name="part_id" required></select>
-            </label>
-            <label>
-              动作 ID
-              <input type="text" name="exercise_id" placeholder="lat_pulldown" required />
             </label>
             <label>
               动作名

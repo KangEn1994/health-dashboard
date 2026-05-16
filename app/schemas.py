@@ -94,7 +94,7 @@ class WorkoutExerciseUpdate(WorkoutExerciseBase):
 
 class WorkoutPlanGroupInput(BaseModel):
     name: str = Field(min_length=1, max_length=60)
-    part_id: str = Field(min_length=2, max_length=40, pattern=r"^[a-z][a-z0-9_]*$")
+    part_id: str = Field(min_length=2, max_length=40)
     exercise_ids: list[str] = Field(min_length=1)
     notes: str = Field(default="", max_length=300)
     sort_order: int = Field(default=100, ge=0, le=9999)
@@ -124,8 +124,8 @@ class WorkoutPlanUpdate(WorkoutPlanBase):
 
 
 class WorkoutExerciseLogInput(BaseModel):
-    part_id: str = Field(min_length=2, max_length=40, pattern=r"^[a-z][a-z0-9_]*$")
-    exercise_id: str = Field(min_length=2, max_length=40, pattern=r"^[a-z][a-z0-9_]*$")
+    part_id: str = Field(min_length=2, max_length=40)
+    exercise_id: str = Field(min_length=2, max_length=40)
     detail: str = Field(default="", max_length=300)
     sets: int = Field(default=1, ge=1, le=50)
     reps: int | None = Field(default=None, ge=1, le=500)

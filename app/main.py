@@ -229,6 +229,15 @@ def get_workout_catalog(
     return service.get_workout_catalog()
 
 
+@app.post("/api/workouts/parts", status_code=201)
+def create_workout_part_with_uuid(
+    payload: WorkoutPartCreate,
+    _auth: dict = Depends(require_api_auth),
+    service: DashboardService = Depends(get_service),
+) -> dict:
+    return service.create_workout_part(payload)
+
+
 @app.post("/api/workouts/parts/{part_id}", status_code=201)
 def create_workout_part(
     part_id: str,
@@ -236,7 +245,7 @@ def create_workout_part(
     _auth: dict = Depends(require_api_auth),
     service: DashboardService = Depends(get_service),
 ) -> dict:
-    return service.create_workout_part(part_id, payload)
+    return service.create_workout_part(payload, part_id)
 
 
 @app.put("/api/workouts/parts/{part_id}")
@@ -258,6 +267,16 @@ def delete_workout_part(
     return service.delete_workout_part(part_id)
 
 
+@app.post("/api/workouts/parts/{part_id}/exercises", status_code=201)
+def create_workout_exercise_with_uuid(
+    part_id: str,
+    payload: WorkoutExerciseCreate,
+    _auth: dict = Depends(require_api_auth),
+    service: DashboardService = Depends(get_service),
+) -> dict:
+    return service.create_workout_exercise(part_id, payload)
+
+
 @app.post("/api/workouts/parts/{part_id}/exercises/{exercise_id}", status_code=201)
 def create_workout_exercise(
     part_id: str,
@@ -266,7 +285,7 @@ def create_workout_exercise(
     _auth: dict = Depends(require_api_auth),
     service: DashboardService = Depends(get_service),
 ) -> dict:
-    return service.create_workout_exercise(part_id, exercise_id, payload)
+    return service.create_workout_exercise(part_id, payload, exercise_id)
 
 
 @app.put("/api/workouts/parts/{part_id}/exercises/{exercise_id}")
