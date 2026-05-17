@@ -419,6 +419,18 @@ thead th {
   margin: 0;
 }
 
+.workout-plan-group {
+  padding: 16px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(246, 251, 255, 0.92));
+  border: 1px solid rgba(15, 98, 254, 0.1);
+}
+
+.workout-plan-group .form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .tiny-note {
   margin-top: 6px;
   color: var(--muted);

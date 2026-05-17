@@ -1248,10 +1248,13 @@ async function initWorkoutSettingsPage() {
   const catalogPanels = document.getElementById("workoutCatalogPanels");
   const planPanels = document.getElementById("workoutPlanPanels");
   const presetOverviewGrid = document.getElementById("presetOverviewGrid");
+  const planGroupsContainer = document.getElementById("workoutPlanGroups");
+  const addPlanGroupButton = document.getElementById("addWorkoutPlanGroup");
   const exerciseTitle = document.getElementById("workoutExerciseTitle");
   const exerciseSubmit = document.getElementById("workoutExerciseSubmit");
   const cancelExerciseEdit = document.getElementById("cancelWorkoutExerciseEdit");
   const helpers = createWorkoutHelpers();
+  let nextPlanGroupId = 1;
 
   function resetExerciseForm() {
     const currentPartId = exerciseForm.part_id.value;
@@ -1343,26 +1346,104 @@ async function initWorkoutSettingsPage() {
     });
   }
 
+  function partOptionsHtml(selectedPartId = "") {
+    return helpers
+      .activeParts()
+      .map((part) => `<option value="${part.id}" ${part.id === selectedPartId ? "selected" : ""}>${part.label}</option>`)
+      .join("");
+  }
+
+  function exerciseOptionsHtml(partId, selectedExerciseIds = []) {
+    const selectedSet = new Set(selectedExerciseIds);
+    const options = helpers
+      .exercisesForPart(partId)
+      .filter((exercise) => exercise.active)
+      .map((exercise) => `<option value="${exercise.id}" ${selectedSet.has(exercise.id) ? "selected" : ""}>${exercise.name}</option>`)
+      .join("");
+    return options || `<option value="" disabled>该部位下暂无动作</option>`;
+  }
+
+  function refreshPlanGroupExerciseOptions(groupNode) {
+    const partSelect = groupNode.querySelector('select[name="group_part_id"]');
+    const exerciseSelect = groupNode.querySelector('select[name="group_exercise_ids"]');
+    exerciseSelect.innerHTML = exerciseOptionsHtml(partSelect.value);
+  }
+
+  function renumberPlanGroups() {
+    planGroupsContainer.querySelectorAll(".workout-plan-group").forEach((groupNode, index) => {
+      groupNode.querySelector("[data-plan-group-title]").textContent = `训练组 ${index + 1}`;
+      const removeButton = groupNode.querySelector("[data-remove-plan-group]");
+      removeButton.style.display = planGroupsContainer.children.length > 1 ? "" : "none";
+    });
+  }
+
+  function addPlanGroup(preset = {}) {
+    const parts = helpers.activeParts();
+    const selectedPartId = parts.some((part) => part.id === preset.part_id) ? preset.part_id : parts[0]?.id || "";
+    const groupNode = document.createElement("div");
+    groupNode.className = "workout-plan-group";
+    groupNode.dataset.groupId = String(nextPlanGroupId++);
+    groupNode.innerHTML = `
+      <div class="actions" style="justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <strong data-plan-group-title>训练组</strong>
+        <button type="button" class="action-ghost-danger" data-remove-plan-group>删除组</button>
+      </div>
+      <div class="form-grid">
+        <label>
+          训练组名称
+          <input type="text" name="group_name" placeholder="胸部主练" value="${preset.name || ""}" required />
+        </label>
+        <label>
+          训练组部位
+          <select name="group_part_id" required>${partOptionsHtml(selectedPartId)}</select>
+        </label>
+      </div>
+      <label>
+        动作集合
+        <select name="group_exercise_ids" multiple size="6" required>${exerciseOptionsHtml(selectedPartId, preset.exercise_ids || [])}</select>
+      </label>
+      <label>
+        组备注
+        <textarea name="group_notes" placeholder="如：先复合后孤立">${preset.notes || ""}</textarea>
+      </label>
+    `;
+    groupNode.querySelector('select[name="group_part_id"]').addEventListener("change", () => refreshPlanGroupExerciseOptions(groupNode));
+    groupNode.querySelector("[data-remove-plan-group]").addEventListener("click", () => {
+      groupNode.remove();
+      renumberPlanGroups();
+    });
+    planGroupsContainer.appendChild(groupNode);
+    renumberPlanGroups();
+  }
+
+  function ensurePlanGroupRows() {
+    if (!planGroupsContainer.children.length) {
+      addPlanGroup();
+    }
+  }
+
   function renderOverview() {
     renderWorkoutCatalogSummary(helpers, presetOverviewGrid, catalogPanels, planPanels);
     bindDeleteActions();
     const parts = helpers.activeParts();
     const partOptions = parts.map((part) => `<option value="${part.id}">${part.label}</option>`).join("");
     helpers.fillSelectOptions(exerciseForm.part_id, parts, "请选择部位", "id", "label");
-    helpers.fillSelectOptions(planForm.group_part_id, parts, "请选择部位", "id", "label");
     if (parts.length) {
       const preferredExercisePart = exerciseForm.edit_part_id.value || exerciseForm.part_id.value;
       const exercisePartValue = parts.some((part) => part.id === preferredExercisePart) ? preferredExercisePart : parts[0].id;
-      const planPartValue = parts.some((part) => part.id === planForm.group_part_id.value) ? planForm.group_part_id.value : parts[0].id;
       exerciseForm.part_id.innerHTML = partOptions;
-      planForm.group_part_id.innerHTML = partOptions;
       exerciseForm.part_id.value = exercisePartValue;
-      planForm.group_part_id.value = planPartValue;
-      fillExerciseMultiSelectForSettings(planPartValue);
+      ensurePlanGroupRows();
+      planGroupsContainer.querySelectorAll(".workout-plan-group").forEach((groupNode) => {
+        const partSelect = groupNode.querySelector('select[name="group_part_id"]');
+        const currentPartValue = parts.some((part) => part.id === partSelect.value) ? partSelect.value : parts[0].id;
+        partSelect.innerHTML = partOptionsHtml(currentPartValue);
+        partSelect.value = currentPartValue;
+        refreshPlanGroupExerciseOptions(groupNode);
+      });
     } else {
       exerciseForm.part_id.innerHTML = `<option value="">暂无部位，请先新增训练部位</option>`;
-      planForm.group_part_id.innerHTML = `<option value="">暂无部位，请先新增训练部位</option>`;
-      planForm.group_exercise_ids.innerHTML = "";
+      planGroupsContainer.innerHTML = `<div class="empty">暂无部位，请先新增训练部位。</div>`;
     }
   }
 
@@ -1371,19 +1452,7 @@ async function initWorkoutSettingsPage() {
     renderOverview();
   }
 
-  function fillExerciseMultiSelectForSettings(partId) {
-    const select = planForm.group_exercise_ids;
-    const exercises = helpers.exercisesForPart(partId);
-    select.innerHTML = exercises
-      .filter((exercise) => exercise.active)
-      .map((exercise) => `<option value="${exercise.id}">${exercise.name}</option>`)
-      .join("");
-    if (!select.innerHTML) {
-      select.innerHTML = `<option value="" disabled>该部位下暂无动作</option>`;
-    }
-  }
-
-  planForm.group_part_id.addEventListener("change", () => fillExerciseMultiSelectForSettings(planForm.group_part_id.value));
+  addPlanGroupButton.addEventListener("click", () => addPlanGroup());
   cancelExerciseEdit.addEventListener("click", resetExerciseForm);
 
   partForm.addEventListener("submit", async (event) => {
@@ -1434,23 +1503,25 @@ async function initWorkoutSettingsPage() {
   planForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     try {
-      const selectedExerciseIds = Array.from(planForm.group_exercise_ids.selectedOptions).map((option) => option.value);
+      const groups = Array.from(planGroupsContainer.querySelectorAll(".workout-plan-group")).map((groupNode, index) => ({
+        name: groupNode.querySelector('input[name="group_name"]').value.trim(),
+        part_id: groupNode.querySelector('select[name="group_part_id"]').value,
+        exercise_ids: Array.from(groupNode.querySelector('select[name="group_exercise_ids"]').selectedOptions)
+          .map((option) => option.value)
+          .filter(Boolean),
+        notes: groupNode.querySelector('textarea[name="group_notes"]').value.trim(),
+        sort_order: (index + 1) * 10,
+      }));
       await api.send("/api/workouts/plans", "POST", {
         name: planForm.name.value.trim(),
         description: planForm.description.value.trim(),
         active: true,
-        groups: [
-          {
-            name: planForm.group_name.value.trim(),
-            part_id: planForm.group_part_id.value,
-            exercise_ids: selectedExerciseIds,
-            notes: planForm.group_notes.value.trim(),
-            sort_order: 100,
-          },
-        ],
+        groups,
       });
       updateStatus("workoutPlanStatus", "训练计划已保存");
       planForm.reset();
+      planGroupsContainer.innerHTML = "";
+      ensurePlanGroupRows();
       await loadOverview();
     } catch (error) {
       updateStatus("workoutPlanStatus", parseError(error), true);

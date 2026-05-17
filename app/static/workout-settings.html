@@ -101,7 +101,7 @@
 
         <section class="panel span-4">
           <h3>新增分组计划</h3>
-          <p class="muted">把几个动作并成一个训练组，作为推日、拉日、腿日或有氧恢复等计划单元。</p>
+          <p class="muted">一个计划可以包含多个训练组，每组可选择不同部位和动作。</p>
           <div id="workoutPlanStatus" class="status-pill">等待操作</div>
           <form id="workoutPlanForm">
             <label>
@@ -112,23 +112,11 @@
               说明
               <textarea name="description" placeholder="这套计划适合什么目标"></textarea>
             </label>
-            <label>
-              训练组名称
-              <input type="text" name="group_name" placeholder="胸部主练" required />
-            </label>
-            <label>
-              训练组部位
-              <select name="group_part_id" required></select>
-            </label>
-            <label>
-              动作集合
-              <select name="group_exercise_ids" multiple size="6" required></select>
-            </label>
-            <label>
-              组备注
-              <textarea name="group_notes" placeholder="如：先复合后孤立"></textarea>
-            </label>
-            <button type="submit">保存计划</button>
+            <div id="workoutPlanGroups" class="list-grid compact-list"></div>
+            <div class="actions">
+              <button type="button" id="addWorkoutPlanGroup" class="secondary">添加训练组</button>
+              <button type="submit">保存计划</button>
+            </div>
           </form>
         </section>
       </div>
