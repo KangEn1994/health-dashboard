@@ -809,7 +809,10 @@ function renderWorkoutCatalogSummary(helpers, presetOverviewGrid, catalogPanels,
                     <div class="compact-item">
                       <div class="compact-item-head">
                         <strong>${exercise.name}</strong>
-                        <button type="button" class="action-ghost-danger" data-delete-exercise="${part.id}:${exercise.id}">删除动作</button>
+                        <div class="actions compact-actions">
+                          <button type="button" class="action-ghost" data-edit-exercise="${part.id}:${exercise.id}">编辑</button>
+                          <button type="button" class="action-ghost-danger" data-delete-exercise="${part.id}:${exercise.id}">删除</button>
+                        </div>
                       </div>
                       <div class="muted">${exercise.description || "无描述"}</div>
                       <div class="tiny-note">${exercise.detail_placeholder || "可自由填写动作细节"}</div>
@@ -1245,7 +1248,43 @@ async function initWorkoutSettingsPage() {
   const catalogPanels = document.getElementById("workoutCatalogPanels");
   const planPanels = document.getElementById("workoutPlanPanels");
   const presetOverviewGrid = document.getElementById("presetOverviewGrid");
+  const exerciseTitle = document.getElementById("workoutExerciseTitle");
+  const exerciseSubmit = document.getElementById("workoutExerciseSubmit");
+  const cancelExerciseEdit = document.getElementById("cancelWorkoutExerciseEdit");
   const helpers = createWorkoutHelpers();
+
+  function resetExerciseForm() {
+    const currentPartId = exerciseForm.part_id.value;
+    exerciseForm.reset();
+    exerciseForm.edit_part_id.value = "";
+    exerciseForm.edit_exercise_id.value = "";
+    exerciseForm.edit_active.value = "";
+    exerciseForm.edit_sort_order.value = "";
+    exerciseForm.part_id.disabled = false;
+    exerciseTitle.textContent = "新增动作";
+    exerciseSubmit.textContent = "保存动作";
+    cancelExerciseEdit.style.display = "none";
+    if (currentPartId && Array.from(exerciseForm.part_id.options).some((option) => option.value === currentPartId)) {
+      exerciseForm.part_id.value = currentPartId;
+    }
+  }
+
+  function applyExerciseToForm(partId, exercise) {
+    exerciseForm.edit_part_id.value = partId;
+    exerciseForm.edit_exercise_id.value = exercise.id;
+    exerciseForm.edit_active.value = String(exercise.active !== false);
+    exerciseForm.edit_sort_order.value = String(exercise.sort_order ?? 100);
+    exerciseForm.part_id.value = partId;
+    exerciseForm.part_id.disabled = true;
+    exerciseForm.name.value = exercise.name || "";
+    exerciseForm.description.value = exercise.description || "";
+    exerciseForm.detail_placeholder.value = exercise.detail_placeholder || "";
+    exerciseTitle.textContent = "编辑动作";
+    exerciseSubmit.textContent = "更新动作";
+    cancelExerciseEdit.style.display = "";
+    updateStatus("workoutExerciseStatus", `正在编辑：${exercise.name || exercise.id}`);
+    exerciseForm.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
 
   function bindDeleteActions() {
     catalogPanels.querySelectorAll("[data-delete-part]").forEach((button) => {
@@ -1262,6 +1301,15 @@ async function initWorkoutSettingsPage() {
       });
     });
 
+    catalogPanels.querySelectorAll("[data-edit-exercise]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const [partId, exerciseId] = String(button.dataset.editExercise || "").split(":");
+        const exercise = helpers.exercisesForPart(partId).find((item) => item.id === exerciseId);
+        if (!partId || !exercise) return;
+        applyExerciseToForm(partId, exercise);
+      });
+    });
+
     catalogPanels.querySelectorAll("[data-delete-exercise]").forEach((button) => {
       button.addEventListener("click", async () => {
         const [partId, exerciseId] = String(button.dataset.deleteExercise || "").split(":");
@@ -1270,6 +1318,9 @@ async function initWorkoutSettingsPage() {
         try {
           await api.send(`/api/workouts/parts/${partId}/exercises/${exerciseId}`, "DELETE");
           updateStatus("workoutExerciseStatus", "训练动作已删除");
+          if (exerciseForm.edit_part_id.value === partId && exerciseForm.edit_exercise_id.value === exerciseId) {
+            resetExerciseForm();
+          }
           await loadOverview();
         } catch (error) {
           updateStatus("workoutExerciseStatus", parseError(error), true);
@@ -1300,7 +1351,8 @@ async function initWorkoutSettingsPage() {
     helpers.fillSelectOptions(exerciseForm.part_id, parts, "请选择部位", "id", "label");
     helpers.fillSelectOptions(planForm.group_part_id, parts, "请选择部位", "id", "label");
     if (parts.length) {
-      const exercisePartValue = parts.some((part) => part.id === exerciseForm.part_id.value) ? exerciseForm.part_id.value : parts[0].id;
+      const preferredExercisePart = exerciseForm.edit_part_id.value || exerciseForm.part_id.value;
+      const exercisePartValue = parts.some((part) => part.id === preferredExercisePart) ? preferredExercisePart : parts[0].id;
       const planPartValue = parts.some((part) => part.id === planForm.group_part_id.value) ? planForm.group_part_id.value : parts[0].id;
       exerciseForm.part_id.innerHTML = partOptions;
       planForm.group_part_id.innerHTML = partOptions;
@@ -1332,6 +1384,7 @@ async function initWorkoutSettingsPage() {
   }
 
   planForm.group_part_id.addEventListener("change", () => fillExerciseMultiSelectForSettings(planForm.group_part_id.value));
+  cancelExerciseEdit.addEventListener("click", resetExerciseForm);
 
   partForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -1355,15 +1408,23 @@ async function initWorkoutSettingsPage() {
     event.preventDefault();
     try {
       const partId = exerciseForm.part_id.value;
-      await api.send(`/api/workouts/parts/${partId}/exercises`, "POST", {
+      const editPartId = exerciseForm.edit_part_id.value;
+      const editExerciseId = exerciseForm.edit_exercise_id.value;
+      const isEditing = Boolean(editPartId && editExerciseId);
+      const payload = {
         name: exerciseForm.name.value.trim(),
         description: exerciseForm.description.value.trim(),
         detail_placeholder: exerciseForm.detail_placeholder.value.trim(),
-        active: true,
-        sort_order: 100,
-      });
-      updateStatus("workoutExerciseStatus", "训练动作已保存");
-      exerciseForm.reset();
+        active: isEditing ? exerciseForm.edit_active.value !== "false" : true,
+        sort_order: Number(exerciseForm.edit_sort_order.value || 100),
+      };
+      if (isEditing) {
+        await api.send(`/api/workouts/parts/${editPartId}/exercises/${editExerciseId}`, "PUT", payload);
+      } else {
+        await api.send(`/api/workouts/parts/${partId}/exercises`, "POST", payload);
+      }
+      updateStatus("workoutExerciseStatus", isEditing ? "训练动作已更新" : "训练动作已保存");
+      resetExerciseForm();
       await loadOverview();
     } catch (error) {
       updateStatus("workoutExerciseStatus", parseError(error), true);

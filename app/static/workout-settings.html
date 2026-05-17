@@ -68,10 +68,14 @@
         </section>
 
         <section class="panel span-4">
-          <h3>新增动作</h3>
+          <h3 id="workoutExerciseTitle">新增动作</h3>
           <p class="muted">每个动作都可以带一个可自由编辑的动作细节提示，动作 ID 会自动生成。</p>
           <div id="workoutExerciseStatus" class="status-pill">等待操作</div>
           <form id="workoutExerciseForm">
+            <input type="hidden" name="edit_part_id" />
+            <input type="hidden" name="edit_exercise_id" />
+            <input type="hidden" name="edit_active" />
+            <input type="hidden" name="edit_sort_order" />
             <label>
               所属部位
               <select name="part_id" required></select>
@@ -88,7 +92,10 @@
               细节描述提示
               <input type="text" name="detail_placeholder" placeholder="如：宽握、拉向锁骨" />
             </label>
-            <button type="submit">保存动作</button>
+            <div class="actions">
+              <button type="submit" id="workoutExerciseSubmit">保存动作</button>
+              <button type="button" id="cancelWorkoutExerciseEdit" class="secondary" style="display:none;">取消编辑</button>
+            </div>
           </form>
         </section>
 
