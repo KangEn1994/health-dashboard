@@ -162,6 +162,7 @@ class DashboardService:
         active_numeric = [metric for metric in metrics if metric["type"] == "number" and metric["active"]]
         entries = self.store.get_entries()
         workout_sessions = self.store.get_workout_sessions()
+        workout_catalog = self.store.get_workout_catalog()
         filtered = analytics.filter_entries_by_days(entries, days)
         metric_summaries = {}
         trend_series = {}
@@ -172,7 +173,7 @@ class DashboardService:
         bmi_series = analytics.series_for_metric(filtered, "bmi", profile["height_cm"])
         metric_summaries["bmi"] = analytics.summary_for_series(bmi_series)
         trend_series["bmi"] = bmi_series
-        workout_duration_series = analytics.workout_duration_series(workout_sessions, days)
+        workout_duration_series = analytics.workout_duration_series(workout_sessions, days, workout_catalog)
         metric_summaries["workout_duration_min"] = analytics.summary_for_series(workout_duration_series)
         trend_series["workout_duration_min"] = workout_duration_series
         weight_series = trend_series.get("weight_kg", [])
@@ -210,7 +211,7 @@ class DashboardService:
             "weight_velocity_per_week": weight_velocity,
             "correlations": correlations,
             "calendar_heatmap": analytics.calendar_heatmap(entries),
-            "insights": analytics.auto_insights(metric_summaries, trend_series),
+            "insights": analytics.auto_insights(trend_series, workout_sessions, workout_catalog),
             "entry_count": len(entries),
         }
 

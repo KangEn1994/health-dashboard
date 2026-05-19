@@ -98,10 +98,30 @@ def series_for_metric(
     return series
 
 
-def workout_duration_series(sessions: list[dict[str, Any]], days: int | None = None) -> list[dict[str, Any]]:
+def cardio_part_ids(catalog: dict[str, Any] | None = None) -> set[str]:
+    result = {"cardio"}
+    for part in (catalog or {}).get("parts", []):
+        part_id = str(part.get("id", ""))
+        label = str(part.get("label", ""))
+        if "cardio" in part_id.lower() or "有氧" in label:
+            result.add(part_id)
+    return result
+
+
+def is_cardio_exercise(exercise: dict[str, Any], cardio_ids: set[str]) -> bool:
+    part_id = exercise.get("part_id")
+    return bool(part_id) and part_id in cardio_ids
+
+
+def workout_duration_series(
+    sessions: list[dict[str, Any]],
+    days: int | None = None,
+    catalog: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     relevant_sessions = sessions
     today = today_business_date()
     start_date = None
+    cardio_ids = cardio_part_ids(catalog)
     if days is not None:
         start_date = today - timedelta(days=days)
         relevant_sessions = [session for session in sessions if business_date(session["recorded_at"]) >= start_date]
@@ -109,7 +129,11 @@ def workout_duration_series(sessions: list[dict[str, Any]], days: int | None = N
     buckets: dict[str, int] = defaultdict(int)
     for session in relevant_sessions:
         day_key = business_date(session["recorded_at"]).isoformat()
-        buckets[day_key] += sum(int(exercise.get("duration_minutes") or 0) for exercise in session.get("exercises", []))
+        buckets[day_key] += sum(
+            int(exercise.get("duration_minutes") or 0)
+            for exercise in session.get("exercises", [])
+            if is_cardio_exercise(exercise, cardio_ids)
+        )
 
     if start_date is None and buckets:
         start_date = min(datetime.fromisoformat(day).date() for day in buckets)
@@ -334,29 +358,127 @@ def period_change_bundle(series: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return result
 
 
-def auto_insights(metric_summaries: dict[str, dict[str, Any]], trend_series: dict[str, list[dict[str, Any]]]) -> list[str]:
+def _recent_window(series: list[dict[str, Any]], days: int = 30) -> list[dict[str, Any]]:
+    start_date = today_business_date() - timedelta(days=days - 1)
+    return [point for point in series if business_date(point["recorded_at"]) >= start_date]
+
+
+def _range_change_insight(
+    series: list[dict[str, Any]],
+    label: str,
+    unit: str,
+    decrease_label: str,
+    increase_label: str,
+) -> str | None:
+    window = _recent_window(series, 30)
+    if not window:
+        return None
+    values = [point["value"] for point in window]
+    highest = max(values)
+    lowest = min(values)
+    if len(window) >= 2:
+        delta = round(window[0]["value"] - window[-1]["value"], 3)
+        direction = decrease_label if delta >= 0 else increase_label
+        change_text = f"30天累计{direction} {abs(delta):.1f}{unit}"
+    else:
+        change_text = "记录不足，暂无法计算30天累计变化"
+    return f"最近30天最高{label} {highest:.1f}{unit}，最低{label} {lowest:.1f}{unit}，{change_text}。"
+
+
+def _fat_mass_insight(weight_series: list[dict[str, Any]], body_fat_series: list[dict[str, Any]]) -> str | None:
+    weights_by_day = {business_date(point["recorded_at"]): point["value"] for point in _recent_window(weight_series, 30)}
+    body_fat_by_day = {business_date(point["recorded_at"]): point["value"] for point in _recent_window(body_fat_series, 30)}
+    common_days = sorted(set(weights_by_day) & set(body_fat_by_day))
+    if len(common_days) < 2:
+        return None
+    first_day = common_days[0]
+    last_day = common_days[-1]
+    first_fat_mass = weights_by_day[first_day] * body_fat_by_day[first_day] / 100
+    last_fat_mass = weights_by_day[last_day] * body_fat_by_day[last_day] / 100
+    fat_loss = first_fat_mass - last_fat_mass
+    direction = "减少" if fat_loss >= 0 else "增加"
+    return f"最近30天估算脂肪重量由 {first_fat_mass:.1f}kg 变为 {last_fat_mass:.1f}kg，实际{direction} {abs(fat_loss):.1f}kg。"
+
+
+def _cardio_insight(sessions: list[dict[str, Any]], catalog: dict[str, Any] | None = None) -> str:
+    cardio_ids = cardio_part_ids(catalog)
+    start_date = today_business_date() - timedelta(days=29)
+    daily_minutes = {start_date + timedelta(days=offset): 0 for offset in range(30)}
+    for session in sessions:
+        day = business_date(session["recorded_at"])
+        if day not in daily_minutes:
+            continue
+        daily_minutes[day] += sum(
+            int(exercise.get("duration_minutes") or 0)
+            for exercise in session.get("exercises", [])
+            if is_cardio_exercise(exercise, cardio_ids)
+        )
+    total = sum(daily_minutes.values())
+    average = total / 30
+    absence_days = sum(1 for minutes in daily_minutes.values() if minutes < 10)
+    return f"最近30天累计有氧 {total} 分钟，日均 {average:.1f} 分钟，低于10分钟的缺勤天数 {absence_days} 天。"
+
+
+def _strength_recency_insight(sessions: list[dict[str, Any]], catalog: dict[str, Any] | None = None) -> str | None:
+    catalog = catalog or {}
+    cardio_ids = cardio_part_ids(catalog)
+    part_lookup = {part["id"]: part.get("label", part["id"]) for part in catalog.get("parts", [])}
+    strength_part_ids = [
+        part["id"]
+        for part in catalog.get("parts", [])
+        if part.get("active", True) and part["id"] not in cardio_ids
+    ]
+    if not strength_part_ids:
+        return None
+    last_by_part: dict[str, date] = {}
+    for session in sessions:
+        day = business_date(session["recorded_at"])
+        for exercise in session.get("exercises", []):
+            part_id = exercise.get("part_id")
+            if not part_id or part_id in cardio_ids:
+                continue
+            if part_id not in last_by_part or day > last_by_part[part_id]:
+                last_by_part[part_id] = day
+    today = today_business_date()
+    parts = []
+    for part_id in strength_part_ids:
+        label = part_lookup.get(part_id, part_id)
+        if part_id in last_by_part:
+            days = (today - last_by_part[part_id]).days
+            parts.append(f"{label}{days}天前")
+        else:
+            parts.append(f"{label}暂无记录")
+    return "距离各部位上一次力量训练：" + "，".join(parts) + "。"
+
+
+def auto_insights(
+    trend_series: dict[str, list[dict[str, Any]]],
+    workout_sessions: list[dict[str, Any]] | None = None,
+    catalog: dict[str, Any] | None = None,
+) -> list[str]:
     insights = []
-    weight = metric_summaries.get("weight_kg", {})
-    body_fat = metric_summaries.get("body_fat_pct", {})
     weight_series = trend_series.get("weight_kg", [])
     body_fat_series = trend_series.get("body_fat_pct", [])
-    if weight.get("delta") is not None:
-        direction = "下降" if weight["delta"] < 0 else "上升"
-        insights.append(f"最近一次体重较上次{direction}{abs(weight['delta']):.1f}kg。")
-    if weight.get("average_30d") is not None and body_fat.get("average_30d") is not None:
-        insights.append(
-            f"近30天平均体重 {weight['average_30d']:.1f}kg，平均体脂 {body_fat['average_30d']:.1f}% 。"
-        )
-    for change in period_change_bundle(weight_series):
-        direction = "下降" if change["change"] < 0 else "上升"
-        insights.append(
-            f"{change['label']}体重由 {change['start_value']:.1f}kg 变为 {change['end_value']:.1f}kg，{direction}{abs(change['change']):.1f}kg。"
-        )
-    for change in period_change_bundle(body_fat_series):
-        direction = "下降" if change["change"] < 0 else "上升"
-        insights.append(
-            f"{change['label']}体脂由 {change['start_value']:.1f}% 变为 {change['end_value']:.1f}%，{direction}{abs(change['change']):.1f}%。"
-        )
+
+    weight_insight = _range_change_insight(weight_series, "体重", "kg", "减重", "增重")
+    if weight_insight:
+        insights.append(weight_insight)
+
+    body_fat_insight = _range_change_insight(body_fat_series, "体脂率", "%", "降低体脂率", "升高体脂率")
+    if body_fat_insight:
+        insights.append(body_fat_insight)
+
+    fat_mass_insight = _fat_mass_insight(weight_series, body_fat_series)
+    if fat_mass_insight:
+        insights.append(fat_mass_insight)
+
+    sessions = workout_sessions or []
+    insights.append(_cardio_insight(sessions, catalog))
+
+    strength_insight = _strength_recency_insight(sessions, catalog)
+    if strength_insight:
+        insights.append(strength_insight)
+
     if not insights:
         insights.append("先录入几条记录，系统会自动生成趋势解读。")
     return insights

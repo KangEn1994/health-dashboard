@@ -110,7 +110,8 @@ def test_entry_crud_and_dashboard(client) -> None:
     assert payload["summaries"]["bmi"]["latest"] is not None
     assert payload["continuity"]["record_days"] == 2
     assert payload["trends"]["weight_kg"][0]["recorded_at"].endswith("+08:00")
-    assert any("本" in insight for insight in payload["insights"])
+    assert any("最近30天最高体重" in insight for insight in payload["insights"])
+    assert any("累计有氧" in insight for insight in payload["insights"])
 
     analytics = client.get("/api/analytics?range=30d&metrics=weight_kg,body_fat_pct", headers=headers)
     assert analytics.status_code == 200

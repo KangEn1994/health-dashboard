@@ -84,11 +84,11 @@ def test_workout_duration_series_fills_missing_days(monkeypatch) -> None:
     sessions = [
         {
             "recorded_at": "2026-05-15T02:00:00+08:00",
-            "exercises": [{"duration_minutes": 35}],
+            "exercises": [{"part_id": "cardio", "duration_minutes": 35}],
         },
         {
             "recorded_at": "2026-05-16T20:00:00+08:00",
-            "exercises": [{"duration_minutes": 20}],
+            "exercises": [{"part_id": "cardio", "duration_minutes": 20}],
         },
     ]
 
@@ -99,3 +99,43 @@ def test_workout_duration_series_fills_missing_days(monkeypatch) -> None:
         {"recorded_at": "2026-05-15T06:00:00+08:00", "value": 0.0},
         {"recorded_at": "2026-05-16T06:00:00+08:00", "value": 20.0},
     ]
+
+
+def test_auto_insights_include_weight_fat_cardio_and_strength(monkeypatch) -> None:
+    fixed_now = datetime(2026, 5, 16, 12, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    monkeypatch.setattr(analytics, "now_beijing", lambda: fixed_now)
+    trend_series = {
+        "weight_kg": [
+            {"recorded_at": "2026-04-18T08:00:00+08:00", "value": 80.0},
+            {"recorded_at": "2026-05-16T08:00:00+08:00", "value": 77.5},
+        ],
+        "body_fat_pct": [
+            {"recorded_at": "2026-04-18T08:00:00+08:00", "value": 24.0},
+            {"recorded_at": "2026-05-16T08:00:00+08:00", "value": 21.0},
+        ],
+    }
+    catalog = {
+        "parts": [
+            {"id": "chest", "label": "胸部", "active": True},
+            {"id": "back", "label": "背部", "active": True},
+            {"id": "cardio", "label": "有氧", "active": True},
+        ]
+    }
+    sessions = [
+        {
+            "recorded_at": "2026-05-10T22:00:00+08:00",
+            "exercises": [{"part_id": "cardio", "duration_minutes": 30}],
+        },
+        {
+            "recorded_at": "2026-05-14T22:00:00+08:00",
+            "exercises": [{"part_id": "chest", "sets": 4}],
+        },
+    ]
+
+    insights = analytics.auto_insights(trend_series, sessions, catalog)
+
+    assert any("最近30天最高体重" in item and "30天累计减重 2.5kg" in item for item in insights)
+    assert any("最近30天最高体脂率" in item and "30天累计降低体脂率 3.0%" in item for item in insights)
+    assert any("估算脂肪重量" in item and "实际减少" in item for item in insights)
+    assert any("累计有氧 30 分钟" in item and "缺勤天数 29 天" in item for item in insights)
+    assert any("胸部2天前" in item and "背部暂无记录" in item for item in insights)
