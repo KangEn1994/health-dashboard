@@ -541,5 +541,5 @@ class DashboardService:
             "sessions": self.get_workout_sessions(),
             "summary_14d": analytics.workout_volume_summary(sessions, 14),
             "summary_30d": analytics.workout_volume_summary(sessions, 30),
-            "recommendations": analytics.workout_recommendations(catalog, plans, sessions),
+            "recommendations": [],
         }

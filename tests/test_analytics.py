@@ -56,28 +56,6 @@ def test_period_change_bundle() -> None:
     assert any(item["label"] in {"本年", "本季度"} for item in bundle)
 
 
-def test_workout_recommendations_include_frequency_signal() -> None:
-    catalog = {
-        "parts": [
-            {"id": "chest", "label": "胸部", "active": True},
-            {"id": "back", "label": "背部", "active": True},
-            {"id": "cardio", "label": "有氧", "active": True},
-        ],
-        "exercises": {},
-    }
-    plans = [{"id": "push_a", "active": True}]
-    sessions = [
-        {
-            "recorded_at": (analytics.now_beijing() - timedelta(days=3)).isoformat(),
-            "plan_id": "push_a",
-            "exercises": [{"part_id": "chest", "exercise_id": "bench_press", "sets": 4}],
-        }
-    ]
-    result = analytics.workout_recommendations(catalog, plans, sessions)
-    assert any("训练次数偏少" in item or "没有覆盖" in item for item in result)
-    assert any("有氧" in item for item in result)
-
-
 def test_workout_duration_series_fills_missing_days(monkeypatch) -> None:
     fixed_now = datetime(2026, 5, 16, 12, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
     monkeypatch.setattr(analytics, "now_beijing", lambda: fixed_now)

@@ -231,10 +231,9 @@ fun ChartScreen(
                     }
 
                     item {
-                        SectionCard(title = "自动洞察", subtitle = "健康趋势和训练建议合并展示。") {
+                        SectionCard(title = "自动洞察", subtitle = "基于健康数据和训练记录生成。") {
                             val mergedInsights = buildList {
                                 addAll(dashboard!!.insights)
-                                addAll(workoutOverview?.recommendations.orEmpty())
                                 if (weightSummary.latest != null && bmiCurrent != null) {
                                     add("当前体重 ${formatCompact(weightSummary.latest)}kg，BMI ${formatCompact(bmiCurrent)}")
                                 }

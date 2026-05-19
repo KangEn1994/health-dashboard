@@ -364,7 +364,7 @@ def test_workout_catalog_plan_and_session_crud(client) -> None:
     assert overview.status_code == 200
     assert overview.json()["summary_14d"]["session_count"] >= 0
     assert "cardio_duration_minutes" in overview.json()["summary_30d"]
-    assert overview.json()["recommendations"]
+    assert overview.json()["recommendations"] == []
 
 
 def test_workout_part_and_exercise_delete(client) -> None:

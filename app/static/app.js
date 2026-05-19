@@ -372,39 +372,6 @@ function renderDashboard(data) {
   });
 
   document.getElementById("insightList").innerHTML = data.insights.map((text) => `<div class="insight-item">${text}</div>`).join("");
-
-  Promise.resolve(api.get("/api/workouts/overview"))
-    .then((workoutData) => {
-      const summaryNode = document.getElementById("dashboardWorkoutSummary");
-      const insightNode = document.getElementById("dashboardWorkoutInsights");
-      if (!summaryNode || !insightNode) return;
-      summaryNode.innerHTML = `
-        <div class="summary-card">
-          <div class="label">近 14 天训练次数</div>
-          <div class="value">${workoutData.summary_14d.session_count}</div>
-          <div class="delta">总组数 ${workoutData.summary_14d.total_sets}</div>
-        </div>
-        <div class="summary-card">
-          <div class="label">近 30 天训练次数</div>
-          <div class="value">${workoutData.summary_30d.session_count}</div>
-          <div class="delta">计划种类 ${Object.keys(workoutData.summary_30d.plan_counts || {}).length}</div>
-        </div>
-        <div class="summary-card">
-          <div class="label">覆盖部位数</div>
-          <div class="value">${Object.keys(workoutData.summary_14d.part_counts || {}).length}</div>
-          <div class="delta">最近两周统计</div>
-        </div>
-      `;
-      insightNode.innerHTML = (workoutData.recommendations || [])
-        .map((item) => `<div class="insight-item">${item}</div>`)
-        .join("");
-    })
-    .catch(() => {
-      const summaryNode = document.getElementById("dashboardWorkoutSummary");
-      const insightNode = document.getElementById("dashboardWorkoutInsights");
-      if (summaryNode) summaryNode.innerHTML = `<div class="empty">训练模块数据暂时不可用。</div>`;
-      if (insightNode) insightNode.innerHTML = "";
-    });
 }
 
 async function initRecordsPage() {
@@ -866,8 +833,8 @@ function renderWorkoutCatalogSummary(helpers, presetOverviewGrid, catalogPanels,
   }
 }
 
-function renderWorkoutRecommendations(overview, summaryGrid, recommendationList) {
-  if (!summaryGrid || !recommendationList) return;
+function renderWorkoutSummary(overview, summaryGrid) {
+  if (!summaryGrid) return;
   summaryGrid.innerHTML = `
     <div class="summary-card">
       <div class="label">近 14 天训练</div>
@@ -885,9 +852,6 @@ function renderWorkoutRecommendations(overview, summaryGrid, recommendationList)
       <div class="delta">最近 14 天</div>
     </div>
   `;
-  recommendationList.innerHTML = (overview.recommendations || [])
-    .map((text) => `<div class="insight-item">${text}</div>`)
-    .join("");
 }
 
 async function initWorkoutsPage() {
@@ -898,7 +862,6 @@ async function initWorkoutsPage() {
   const sessionForm = document.getElementById("workoutSessionForm");
   const sessionsBody = document.getElementById("workoutSessionsBody");
   const summaryGrid = document.getElementById("workoutSummaryGrid");
-  const recommendationList = document.getElementById("workoutRecommendationList");
   const exerciseRowsContainer = document.getElementById("workoutExerciseRows");
   const addExerciseRowButton = document.getElementById("addWorkoutExerciseRow");
   const submitButton = document.getElementById("workoutSessionSubmit");
@@ -1089,7 +1052,7 @@ async function initWorkoutsPage() {
     if (!overview) return;
     const plans = overview.plans || [];
     const planMap = Object.fromEntries(plans.map((plan) => [plan.id, plan]));
-    renderWorkoutRecommendations(overview, summaryGrid, recommendationList);
+    renderWorkoutSummary(overview, summaryGrid);
     helpers.fillSelectOptions(
       sessionForm.plan_id,
       [{ id: "", name: "不使用计划" }, ...plans.filter((plan) => plan.active).map((plan) => ({ id: plan.id, name: plan.name }))],
